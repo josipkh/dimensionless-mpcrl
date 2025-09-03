@@ -5,5 +5,7 @@ This repository contains the implementation of a method for solving Markov decis
 ### Usage
 The implementation is based on [leap-c](https://github.com/leap-c/leap-c/), an open-source framework for implementing (among others) MPC-based RL algorithms. To run the examples in this repository, please install `leap-c` and its dependencies according to the instructions.
 
+NOTE: make sure you use the version referenced in `external/leap-c`
+
 ### Funding
 This work was supported in part by the [Croatian Science Foundation](https://hrzz.hr/en/).
