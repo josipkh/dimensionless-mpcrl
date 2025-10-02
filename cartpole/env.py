@@ -187,7 +187,7 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
 
         # simulate one time step
         if self.use_acados_integrator:
-            self.s = self.integrator.simulate(s=self.s, a=action)
+            self.s = self.integrator.simulate(x=self.s, u=action)
         else:
             self.s = self.integrator(s=self.s, a=action)
         self.s_trajectory.append(self.s)  # type: ignore
@@ -226,7 +226,7 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
         self.reset_needed = trunc or term
 
         # make the observation (x,theta,dx,dtheta) dimensionless
-        obs = self.dim2nondim_s(self.s) if self.dimensionless else self.s
+        obs = self.dim2nondim_s(self.s)
 
         return obs, r, term, trunc, info
 
@@ -246,7 +246,7 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
         self.pos_trajectory = None
         self.pole_end_trajectory = None
 
-        obs = self.dim2nondim_s(self.s) if self.dimensionless else self.s
+        obs = self.dim2nondim_s(self.s)
         return obs, {}
 
     def init_state(self) -> np.ndarray:
