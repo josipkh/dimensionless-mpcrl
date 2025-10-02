@@ -1,3 +1,5 @@
+"""Defines the parameters of the race car OCP and their default values."""
+
 from dataclasses import dataclass
 import numpy as np
 
@@ -63,10 +65,7 @@ class CarParams:
     xNref5: np.ndarray
     xNref6: np.ndarray
 
-    # Controller parameters
-    dt: np.ndarray          # time step [s]
-    gamma: np.ndarray       # discount factor for the cost function
-
+    # Constraints
     a_lat_max: np.ndarray   # maximum lateral acceleration [m/s^2]
     a_lat_min: np.ndarray   # minimum lateral acceleration [m/s^2]
     a_long_max: np.ndarray  # maximum longitudinal acceleration [m/s^2]
@@ -82,6 +81,10 @@ class CarParams:
     dD_min: np.ndarray      # minimum duty cycle rate [1/s]
     ddelta_max: np.ndarray  # maximum steering angle rate [rad/s]
     ddelta_min: np.ndarray  # minimum steering angle rate [rad/s]
+
+    # Controller parameters
+    dt: np.ndarray          # time step [s]
+    gamma: np.ndarray       # discount factor for the cost function
 
 
 def get_default_car_params() -> CarParams:
@@ -140,9 +143,6 @@ def get_default_car_params() -> CarParams:
         xNref5=np.array([0.0]),
         xNref6=np.array([0.0]),
 
-        dt=np.array([0.02]),
-        gamma=np.array([1.0]),
-
         a_lat_max=np.array([+4.0]),
         a_lat_min=np.array([-4.0]),
         a_long_max=np.array([+4.0]),
@@ -158,9 +158,13 @@ def get_default_car_params() -> CarParams:
         dD_min=np.array([-10.0]),
         ddelta_max=np.array([+2.0]),
         ddelta_min=np.array([-2.0]),
+
+        dt=np.array([0.02]),
+        gamma=np.array([1.0]),
     )
 
 
 if __name__ == "__main__":
+    from pprint import pprint
     car_params = get_default_car_params()
-    print(car_params)
+    pprint(car_params)
