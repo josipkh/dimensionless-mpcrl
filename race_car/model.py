@@ -1,12 +1,12 @@
 """Defines the dynamics models for use in the OCP and the simulation."""
 
-import casadi as ca
-from utils import get_track
-import numpy as np
-from config import CarParams, get_default_car_params
-from utils import get_transformation_matrices
-from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
 import os
+import casadi as ca
+import numpy as np
+from race_car.utils.track import get_track
+from race_car.utils.config import CarParams, get_default_car_params
+from race_car.utils.scaling import get_transformation_matrices
+from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
 
 
 def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
@@ -233,7 +233,7 @@ def test_integrator(car_params: CarParams, model: AcadosModel):
 
 
 if __name__ == "__main__":
-    from utils import get_similar_car_params
+    from race_car.utils.scaling import get_large_car_params
     import matplotlib.pyplot as plt
 
     # test the dimensionless or dimensional formulation
@@ -241,12 +241,7 @@ if __name__ == "__main__":
 
     # create the integrators for the small and large car
     car_params_ref = get_default_car_params()
-    car_params_sim = get_similar_car_params(
-        reference_params=car_params_ref,
-        new_length=4.0,
-        new_mass=1500.0,
-        new_cr3=0.4
-    )
+    car_params_sim = get_large_car_params()
 
     integrator_ref = export_acados_integrator(car_params=car_params_ref, dimensionless=dimensionless)
     integrator_sim = export_acados_integrator(car_params=car_params_sim, dimensionless=dimensionless)

@@ -1,10 +1,9 @@
+"""Utility functions for dynamic matching and non-dimensionalization."""
 import numpy as np
-from config import CarParams
+from race_car.utils.config import CarParams, get_default_car_params
 import os
 from pathlib import Path
 from copy import deepcopy
-from config import get_default_car_params
-import matplotlib.pyplot as plt
 
 
 def get_cost_matrices(car_params: CarParams) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -99,8 +98,8 @@ def get_similar_car_params(
     new_params.ddelta_max = reference_params.ddelta_max * Mt / mt
     new_params.ddelta_min = reference_params.ddelta_min * Mt / mt
 
-    MtCr3 = Mt * reference_params.cr3.item()
-    mtcr3 = mt * new_params.cr3.item()
+    MtCr3 = Mt.item() * reference_params.cr3.item()
+    mtcr3 = mt.item() * new_params.cr3.item()
     new_params.a_lat_max = reference_params.a_lat_max * MtCr3 / mtcr3
     new_params.a_lat_min = reference_params.a_lat_min * MtCr3 / mtcr3
     new_params.a_long_max = reference_params.a_long_max * MtCr3 / mtcr3
@@ -131,62 +130,18 @@ def get_pi_groups(car_params: CarParams) -> tuple[float, float]:
     return np.array([pi_1, pi_2, pi_3, pi_4, pi_5])
 
 
-def get_track(car_params: CarParams) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Loads the track data and scales it with the car size."""
-    track = "track.txt"  # not likely to change, so hardcoded here
-    track_file = os.path.join(str(Path(__file__).parent), track)
-    array = np.loadtxt(track_file)
-    sref = array[:,0]  # [m]
-    xref = array[:,1]  # [m]
-    yref = array[:,2]  # [m]
-    psiref = array[:,3]  # [rad]
-    kapparef = array[:,4]  # [1/m]
-
-    # the track is defined for the small car
-    # we need to scale it with the given car size
-    default_car_length = get_default_car_params().l.item()
-    current_car_length = car_params.l.item()
-    scaling_factor = current_car_length / default_car_length
-    sref *= scaling_factor
-    xref *= scaling_factor
-    yref *= scaling_factor
-    kapparef /= scaling_factor
-
-    return sref, xref, yref, psiref, kapparef
-
-
-def plot_track(car_params: CarParams):
-    """Plots the track for the given car parameters."""
-    import matplotlib.pyplot as plt
-
-    _, xref, yref, psiref, _ = get_track(car_params=car_params)
-
-    plt.figure(figsize=(10, 8))
-    plt.plot(xref, yref, label='Track Centerline', color='blue')
-    step = 20
-    plt.quiver(
-        xref[::step],
-        yref[::step],
-        np.cos(psiref[::step]),
-        np.sin(psiref[::step]),
-        angles='xy',
-        scale_units='xy',
-        scale=5*get_default_car_params().l.item()/car_params.l.item(),
-        color='red',
-        width=0.003,
-        label='Heading'
+def get_large_car_params() -> CarParams:
+    """Returns the parameters of a specific larger car."""
+    return get_similar_car_params(
+        reference_params=get_default_car_params(),
+        new_length=4.0,
+        new_mass=1500.0,
+        new_cr3=0.4,  # chosen approximately, top speed of small car is 2.5 m/s
     )
-    plt.axis('equal')
-    plt.title('Track Centerline with Heading Arrows')
-    plt.xlabel('X [m]')
-    plt.ylabel('Y [m]')
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show(block=False)
 
 
 def compare_params(car1: CarParams, car2: CarParams):
+    """Print the parameters of two cars side by side for comparison."""
     # Define parameter groups by field names
     chassis_fields = ['m', 'l', 'lr']
     force_fields = ['cm1', 'cm2', 'cr0', 'cr2', 'cr3']
@@ -209,99 +164,13 @@ def compare_params(car1: CarParams, car2: CarParams):
     print_group("Longitudinal Force", force_fields)
     print_group("Controller", controller_fields)
     print('\n')
-
-    return
-
-
-def plot_Fxd_surface(car_params: CarParams):
-    """
-    Plots the Fxd curve over speed (v) and throttle (D).
-
-    Parameters:
-        cm1, cm2, cr2, cr0, cr3: car parameters
-        v_range: tuple (min_v, max_v)
-        D_range: tuple (min_D, max_D)
-        resolution: number of points for meshgrid
-    """
-    default_v_max = 2.5  # [m/s] max speed for the small car
-    default_cr3 = get_default_car_params().cr3.item()
-    v_max = default_v_max * default_cr3 / car_params.cr3.item()
-    v_range = (0, v_max)
-    D_range = (0, 1)
-    resolution = 100
-
-    # Create meshgrid of v and D
-    v = np.linspace(*v_range, resolution)
-    D = np.linspace(*D_range, resolution)
-    V, D_grid = np.meshgrid(v, D)
-
-    # Compute Fxd over the grid
-    cm1 = car_params.cm1.item()
-    cm2 = car_params.cm2.item()
-    cr2 = car_params.cr2.item()
-    cr0 = car_params.cr0.item()
-    cr3 = car_params.cr3.item()
-    Fxd = (cm1 - cm2 * V) * D_grid - cr2 * V**2 - cr0 * np.tanh(cr3 * V)
-
-    # Plotting
-    fig = plt.figure(figsize=(10, 7))
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot_surface(V, D_grid, Fxd, cmap='viridis')
-    ax.set_xlabel('Speed v [m/s]')
-    ax.set_ylabel('Throttle D [0-1]')
-    ax.set_zlabel('Fxd [N]')
-    ax.set_title('Fxd vs Speed and Throttle (l = {:.2f} m)'.format(car_params.l.item()))
-    plt.tight_layout()
-    plt.show(block=False)
-
-    return
-
-
-def plot_Fxd_vs_D_slices(car_params: CarParams, num_slices: int = 10):
-    """
-    Plots Fxd vs Throttle (D) for different fixed speeds (v).
-    """
-    default_v_max = 2.5  # [m/s]
-    default_cr3 = get_default_car_params().cr3.item()
-    v_max = default_v_max * default_cr3 / car_params.cr3.item()
-
-    cm1 = car_params.cm1.item()
-    cm2 = car_params.cm2.item()
-    cr2 = car_params.cr2.item()
-    cr0 = car_params.cr0.item()
-    cr3 = car_params.cr3.item()
-
-    D = np.linspace(0, 1, 200)
-
-    # Choose speeds for slicing (linearly spaced from 0 to v_max)
-    v_slices = np.linspace(0, v_max, num_slices)
-
-    plt.figure(figsize=(10, 6))
-
-    for v in v_slices:
-        Fxd = (cm1 - cm2 * v) * D - cr2 * v**2 - cr0 * np.tanh(cr3 * v)
-        label = f"v = {v:.2f} m/s"
-        plt.plot(D, Fxd, label=label)
-
-    plt.xlabel("Throttle D [0-1]")
-    plt.ylabel("Fxd [N]")
-    plt.title("Fxd vs Throttle for Different Speeds (l = {:.2f} m)".format(car_params.l.item()))
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show(block=False)
-
+    
 
 if __name__ == "__main__":
-    from config import get_default_car_params
-
+    from race_car.utils.track import get_track
+    
     car_params = get_default_car_params()
-    car_params_sim = get_similar_car_params(
-        reference_params=car_params,
-        new_length=4.0,
-        new_mass=1500.0,
-        new_cr3=0.4,
-    )
+    car_params_sim = get_large_car_params()
     
     # check dynamic similarity
     assert np.allclose(get_pi_groups(car_params), get_pi_groups(car_params_sim))
@@ -330,15 +199,5 @@ if __name__ == "__main__":
     assert np.allclose(car_params.dt / Mt, car_params_sim.dt / mt)
 
     compare_params(car_params, car_params_sim)
-    plot_track(car_params=car_params_sim)
-
-    # plot_Fxd_surface(car_params=car_params)
-    # plot_Fxd_surface(car_params=car_params_sim)
-
-    # plot_Fxd_vs_D_slices(car_params=car_params)
-    # plot_Fxd_vs_D_slices(car_params=car_params_sim)
 
     print("All checks passed.")
-    if plt.get_fignums():
-        input("Press Enter to continue...")  # keep the plots open
-        plt.close('all')

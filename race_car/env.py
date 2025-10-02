@@ -2,8 +2,9 @@
 
 import gymnasium as gym
 import numpy as np
-from config import CarParams, get_default_car_params
-from utils import get_transformation_matrices, get_track
+from race_car.utils.config import CarParams, get_default_car_params
+from race_car.utils.scaling import get_transformation_matrices
+from race_car.utils.track import get_track
 from model import export_acados_integrator
 
 
@@ -158,9 +159,9 @@ class RaceCarEnvDimensionless(gym.Env):
 
 
 if __name__ == "__main__":
-    from utils import get_similar_car_params
+    from race_car.utils.scaling import get_large_car_params
     import matplotlib.pyplot as plt
-    dimensionless = False
+    dimensionless = True
 
     # create envs for the default and similar parameters
     params_ref = get_default_car_params()
@@ -170,12 +171,7 @@ if __name__ == "__main__":
         mpc_car_params=params_ref
     )
 
-    params_sim = get_similar_car_params(
-        reference_params=params_ref,
-        new_length=4.0,
-        new_mass=1500.0,
-        new_cr3=0.4,
-    )
+    params_sim = get_large_car_params()
     env_sim = RaceCarEnvDimensionless(
         car_params=params_sim,
         dimensionless=dimensionless,

@@ -96,8 +96,8 @@ def get_default_car_params() -> CarParams:
 
         cm1=np.array([0.28]),
         cm2=np.array([0.05]),
-        cr0=np.array([0.006]),
-        cr2=np.array([0.011]),
+        cr0=np.array([0.011]),  # switched with cr2 in the paper
+        cr2=np.array([0.006]),  # values taken from the code
         cr3=np.array([5.0]),
 
         L11=np.array([np.sqrt(1e-1)]),
