@@ -1,52 +1,27 @@
-#
-# Copyright (c) The acados authors.
-#
-# This file is part of acados.
-#
-# The 2-Clause BSD License
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice,
-# this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.;
-#
-
-# author: Daniel Kloeser
+"""Defines the dynamics models for use in the OCP and the simulation."""
 
 import casadi as ca
 from utils import get_track
 import numpy as np
 from config import CarParams, get_default_car_params
+from utils import get_transformation_matrices
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
+import os
 
 
-def bicycle_model_ocp(car_params: CarParams):
-    # define structs
-    constraint = ca.types.SimpleNamespace()
-    model = ca.types.SimpleNamespace()
+def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
+    model = AcadosModel()
 
     # load track parameters
     [s0, _, _, _, kapparef] = get_track(car_params=car_params)
-    length = len(s0)
-    pathlength = s0[-1]
+
+    # make dimensionless if needed -> automatically done in nondimensionalize_dynamics()
+    # if dimensionless:
+    #     s0 /= car_params.l.item()
+    #     kapparef *= car_params.l.item()
+
     # copy loop to beginning and end
+    length = len(s0)
     s0 = np.append(s0, [s0[length - 1] + s0[1:length]])
     kapparef = np.append(kapparef, kapparef[1:length])
     s0 = np.append([-s0[length - 2] + s0[length - 81 : length - 2]], s0)
@@ -55,17 +30,17 @@ def bicycle_model_ocp(car_params: CarParams):
     # compute spline interpolations
     kapparef_s = ca.interpolant("kapparef_s", "bspline", [s0], kapparef)
 
-    ## Race car parameters
+    # race car parameters
     m = car_params.m[0]
-    C1 = car_params.lr[0] / car_params.l[0]
-    C2 = 1 / car_params.l[0]
-    Cm1 = car_params.cm1[0]
-    Cm2 = car_params.cm2[0]
-    Cr0 = car_params.cr0[0]
-    Cr2 = car_params.cr2[0]
+    c1 = car_params.lr[0] / car_params.l[0]
+    c2 = 1 / car_params.l[0]
+    cm1 = car_params.cm1[0]
+    cm2 = car_params.cm2[0]
+    cr0 = car_params.cr0[0]
+    cr2 = car_params.cr2[0]
+    cr3 = car_params.cr3[0]
 
-    ## CasADi Model
-    # set up states & controls
+    # states
     s = ca.SX.sym("s")
     n = ca.SX.sym("n")
     alpha = ca.SX.sym("alpha")
@@ -79,7 +54,7 @@ def bicycle_model_ocp(car_params: CarParams):
     derDelta = ca.SX.sym("derDelta")
     u = ca.vertcat(derD, derDelta)
 
-    # xdot
+    # state derivatives
     sdot = ca.SX.sym("sdot")
     ndot = ca.SX.sym("ndot")
     alphadot = ca.SX.sym("alphadot")
@@ -89,56 +64,18 @@ def bicycle_model_ocp(car_params: CarParams):
     xdot = ca.vertcat(sdot, ndot, alphadot, vdot, Ddot, deltadot)
 
     # dynamics
-    Fxd = (Cm1 - Cm2 * v) * D - Cr2 * v * v - Cr0 * ca.tanh(5 * v)
-    sdota = (v * ca.cos(alpha + C1 * delta)) / (1 - kapparef_s(s) * n)
+    Fxd = (cm1 - cm2 * v) * D - cr2 * v * v - cr0 * ca.tanh(cr3 * v)
+    sdot_rhs = (v * ca.cos(alpha + c1 * delta)) / (1 - kapparef_s(s) * n)
     f_expl = ca.vertcat(
-        sdota,
-        v * ca.sin(alpha + C1 * delta),
-        v * C2 * delta - kapparef_s(s) * sdota,
-        Fxd / m * ca.cos(C1 * delta),
+        sdot_rhs,
+        v * ca.sin(alpha + c1 * delta),
+        v * c2 * delta - kapparef_s(s) * sdot_rhs,
+        Fxd / m * ca.cos(c1 * delta),
         derD,
         derDelta,
     )
 
-    # constraint on forces
-    a_lat = C2 * v * v * delta + Fxd * ca.sin(C1 * delta) / m
-    a_long = Fxd / m
-
-    # Model bounds
-    model.n_min = car_params.n_min[0]
-    model.n_max = car_params.n_max[0]
-
-    # state bounds
-    model.throttle_min = car_params.D_min[0]
-    model.throttle_max = car_params.D_max[0]
-
-    model.delta_min = car_params.delta_min[0]
-    model.delta_max = car_params.delta_max[0]
-
-    # input bounds
-    model.ddelta_min = car_params.ddelta_min[0]
-    model.ddelta_max = car_params.ddelta_max[0]
-    model.dthrottle_min = car_params.dD_min[0]
-    model.dthrottle_max = car_params.dD_max[0]
-
-    # nonlinear constraint
-    constraint.alat_min = car_params.a_lat_min[0]
-    constraint.alat_max = car_params.a_lat_max[0]
-
-    constraint.along_min = car_params.a_long_min[0]
-    constraint.along_max = car_params.a_long_max[0]
-
-    # Define initial conditions
-    model.x0 = np.array([-2, 0, 0, 0, 0, 0])
-
-    # define constraints struct
-    constraint.alat = ca.Function("a_lat", [x, u], [a_lat])
-    constraint.pathlength = pathlength
-    constraint.expr = ca.vertcat(a_long, a_lat, n, D, delta)
-
-    model_name = "spatial_bicycle_model_ocp"
-
-    # add labels for states and controls
+    # add labels for states, controls and time
     model.x_labels = [
         "$s$ [m]",
         "$n$ [m]",
@@ -153,62 +90,230 @@ def bicycle_model_ocp(car_params: CarParams):
     ]
     model.t_label = "$t$ [s]"
 
-    # Define model struct
+    # assign fields to object
     model.f_impl_expr = xdot - f_expl
     model.f_expl_expr = f_expl
     model.x = x
-    model.xdot = xdot
     model.u = u
-    model.name = model_name
-    return model, constraint
+    model.xdot = xdot    
+    model.name = "car_model_ocp"
+
+    # make dimensionless if needed
+    if dimensionless:
+        model = nondimensionalize_dynamics(car_params=car_params, model=model)
+
+    return model
 
 
-def bicycle_model_sim(car_params: CarParams) -> ca.types.SimpleNamespace:
+def car_model_sim(car_params: CarParams, dimensionless: bool) -> AcadosModel:
     # get the OCP model
-    model_ocp = bicycle_model_ocp(car_params=car_params)[0]
+    model_ocp = car_model_ocp(car_params=car_params, dimensionless=dimensionless)
 
     # remove the control input rate from the model for simulation
     nx = 4
     nu = 2
-    model = ca.types.SimpleNamespace()
+    model = AcadosModel()
     model.f_impl_expr = model_ocp.f_impl_expr[0:nx]
     model.f_expl_expr = model_ocp.f_expl_expr[0:nx]
     model.x = model_ocp.x[0:nx]
     model.xdot = model_ocp.xdot[0:nx]
     model.u = model_ocp.x[nx:nx+nu]
-    model.name = model_ocp.name[:-4] + "_sim"
+    model.name = model_ocp.name.replace("ocp", "sim")
     model.x_labels = model_ocp.x_labels[0:nx]
     model.u_labels = model_ocp.x_labels[nx:nx+nu]
     model.t_label = model_ocp.t_label
     return model
 
 
-def export_acados_integrator(car_params: CarParams) -> AcadosSimSolver:
-    """Create and return an acados integrator for the car model."""
-    model = bicycle_model_sim(car_params=car_params)
-    acados_model = AcadosModel()
-    acados_model.x = model.x
-    acados_model.u = model.u
-    acados_model.f_expl_expr = model.f_expl_expr
-    acados_model.f_impl_expr = model.f_impl_expr
-    acados_model.xdot = model.xdot
-    acados_model.name = "car_model"
-    acados_model.x_labels = model.x_labels
-    acados_model.u_labels = model.u_labels
-    acados_model.t_label = model.t_label
+def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> AcadosSimSolver:
+    """Create and return an acados integrator for simulating the car model."""
 
     sim = AcadosSim()
-    sim.model = acados_model
+    sim.model = car_model_sim(car_params=car_params, dimensionless=dimensionless)
     sim.solver_options.T = car_params.dt.item()
+    if dimensionless:
+        sim.solver_options.T /= get_transformation_matrices(car_params)[2].item()
     sim.solver_options.integrator_type = "ERK"
     sim.solver_options.num_stages = 4
     sim.solver_options.num_steps = 1
+    sim.code_export_directory = os.path.join("codegen", f"sim_{car_params.l.item():.3g}".replace(".", "_"))  # prevent overwriting
     print("Setting up acados integrator...")
-    return AcadosSimSolver(sim, verbose=False)
+
+    acados_sim = AcadosSimSolver(
+        sim, 
+        verbose=False,
+        json_file=os.path.join("json", f"sim_{car_params.l.item():.3g}".replace(".", "_") + ".json")  # prevent overwriting
+    )
+
+    return acados_sim
+
+
+def nondimensionalize_dynamics(car_params: CarParams, model: AcadosModel) -> AcadosModel:
+    x = model.x
+    u = model.u
+
+    # states
+    s_hat = ca.SX.sym("s_hat")
+    n_hat = ca.SX.sym("n_hat")
+    alpha_hat = ca.SX.sym("alpha_hat")
+    v_hat = ca.SX.sym("v_hat")
+    D_hat = ca.SX.sym("D_hat")
+    delta_hat = ca.SX.sym("delta_hat")
+    x_hat = ca.vertcat(s_hat, n_hat, alpha_hat, v_hat, D_hat, delta_hat)
+
+    # controls
+    derD_hat = ca.SX.sym("derD_hat")
+    derDelta_hat = ca.SX.sym("derDelta_hat")
+    u_hat = ca.vertcat(derD_hat, derDelta_hat)
+
+    # state derivatives
+    sdot_hat = ca.SX.sym("sdot_hat")
+    ndot_hat = ca.SX.sym("ndot_hat")
+    alphadot_hat = ca.SX.sym("alphadot_hat")
+    vdot_hat = ca.SX.sym("vdot_hat")
+    Ddot_hat = ca.SX.sym("Ddot_hat")
+    deltadot_hat = ca.SX.sym("deltadot_hat")
+    xdot_hat = ca.vertcat(sdot_hat, ndot_hat, alphadot_hat, vdot_hat, Ddot_hat, deltadot_hat)
+
+    Mx, Mu, Mt = get_transformation_matrices(car_params=car_params)
+    x_scale = np.diagonal(Mx)
+    u_scale = np.diagonal(Mu)
+    dx_scale = x_scale / Mt[0]
+    f_expl = model.f_expl_expr
+
+    # RHS states
+    for k in range(len(x_scale)):
+        f_expl = ca.substitute(f_expl, x[k], x_scale[k] * x_hat[k])
+
+    # RHS actions
+    for k in range(len(u_scale)):
+        f_expl = ca.substitute(f_expl, u[k], u_scale[k] * u_hat[k])
+
+    # LHS (derivatives)
+    for k in range(len(dx_scale)):
+        f_expl[k] /= dx_scale[k]
+
+    model.x = x_hat
+    model.u = u_hat
+    model.xdot = xdot_hat
+    model.f_impl_expr = xdot_hat - f_expl
+    model.f_expl_expr = f_expl
+    model.name += "_dimensionless"
+
+    model.x_labels = [
+        "$\hat{s}$ [-]",
+        "$\hat{n}$ [-]",
+        r"$\hat{\alpha}$ [-]",
+        "$\hat{v}$ [-]",
+        "$\hat{D}$ [-]",
+        r"$\hat{\delta}$ [-]",
+    ]
+    model.u_labels = [
+        r"$\dot{\hat{D}}$ [rad/s]",
+        r"$\dot{\hat{\delta}}$ [rad/s]",
+    ]
+    model.t_label = "$\hat{t}$ [-]"
+
+    return model
+
+def test_integrator(car_params: CarParams, model: AcadosModel):
+    """Simulate the symbolic dynamics using CasADi."""
+    ode = {'x': model.x, 'ode': model.f_expl_expr, 'p': model.u}
+    integrator = ca.integrator('integrator', 'rk', ode, 0, car_params.dt.item())
+    x = [0.0, 0.0, 0.0, 0.0]
+    for _ in range(10):
+        res = integrator(x0=x, p=[1.0, 0.0])  # straight driving, full throttle
+        x = res['xf'].full().flatten()
+    print("="*20)
+    print("car length: ", car_params.l.item())
+    print("x final: ", x)
+    print("x scaled: ", x / car_params.l.item())
+    print("="*20)
+    return
 
 
 if __name__ == "__main__":
-    from config import get_default_car_params
-    car_params = get_default_car_params()
-    integrator = export_acados_integrator(car_params=car_params)
-    print("Integrator successfully created.")
+    from utils import get_similar_car_params
+    import matplotlib.pyplot as plt
+
+    # test the dimensionless or dimensional formulation
+    dimensionless = True
+
+    # create the integrators for the small and large car
+    car_params_ref = get_default_car_params()
+    car_params_sim = get_similar_car_params(
+        reference_params=car_params_ref,
+        new_length=4.0,
+        new_mass=1500.0,
+        new_cr3=0.4
+    )
+
+    integrator_ref = export_acados_integrator(car_params=car_params_ref, dimensionless=dimensionless)
+    integrator_sim = export_acados_integrator(car_params=car_params_sim, dimensionless=dimensionless)
+    print("Integrators successfully created.")
+
+    # test_integrator(car_params=car_params_ref, model=integrator_ref.acados_sim.model)
+    # test_integrator(car_params=car_params_sim, model=integrator_sim.acados_sim.model)
+
+    # compare the integrators
+    x0_ref = np.array([0.0, 0.0, 0.0, 0.0])
+    x0_sim = x0_ref
+    x_log_ref = []
+    x_log_sim = []
+    u_log = []
+    for i in range(100):
+        # choose a random input
+        u_rand = np.random.uniform(low=[-1.0, -0.4], high=[+1.0, +0.4])
+        u_log.append(u_rand)
+
+        # simulate the reference car
+        x_next_ref = integrator_ref.simulate(x=x0_ref, u=u_rand)
+        x_log_ref.append(x_next_ref)
+        x0_ref = x_next_ref
+
+        # simulate the similar car
+        x_next_sim = integrator_sim.simulate(x=x0_sim, u=u_rand)
+        x_log_sim.append(x_next_sim)        
+        x0_sim = x_next_sim
+    print("Simulation successful.")
+    print("Final state ref: ", x_log_ref[-1])
+    print("Final state sim: ", x_log_sim[-1])
+
+    # plot the results
+    obs_ref_log = np.array(x_log_ref)
+    obs_sim_log = np.array(x_log_sim)
+    act_log = np.array(u_log)
+    nx = 4
+    nu = 2
+    fig, ax = plt.subplots(nx + nu, 1, sharex=True)
+    labels = ["ref", "sim"]
+    for i in range(nx):
+        ax[i].plot(obs_ref_log[:, i], color="b", label=labels[0])
+        ax[i].plot(obs_sim_log[:, i], color="r", linestyle="--", label=labels[1])
+        ax[i].grid()
+        ax[i].set_ylabel(integrator_ref.acados_sim.model.x_labels[i])
+    ax[0].legend()
+    for i in range(nu):
+        ax[nx+i].step(
+            list(range(obs_ref_log.shape[0]+1)),
+            np.append([act_log[0, i]], act_log[:, i]),
+            where="post",
+            color="b",
+        )
+        ax[nx+i].set_ylabel(integrator_ref.acados_sim.model.u_labels[i])
+        ax[nx+i].grid()
+    ax[-1].set_xlabel("$k$")
+
+    plt.subplots_adjust(left=None, bottom=None, right=None, top=None, hspace=0.4)
+    fig.align_ylabels(ax)
+    plt.show(block=False)
+
+    if dimensionless:
+        if np.allclose(x_log_ref, x_log_sim):
+            print("Results match.")
+        else:
+            print("Results do not match.")
+
+    print("Press ENTER to close the plot")
+    input()
+    plt.close()
