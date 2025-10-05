@@ -85,6 +85,7 @@ class CarParams:
     # Controller parameters
     dt: np.ndarray          # time step [s]
     gamma: np.ndarray       # discount factor for the cost function
+    N: np.ndarray           # prediction horizon (number of steps)
 
 
 def get_default_car_params() -> CarParams:
@@ -161,6 +162,7 @@ def get_default_car_params() -> CarParams:
 
         dt=np.array([0.02]),
         gamma=np.array([1.0]),
+        N=np.array([50]),
     )
 
 
