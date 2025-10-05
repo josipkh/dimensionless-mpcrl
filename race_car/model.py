@@ -10,6 +10,7 @@ from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
 
 
 def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
+    """Get the prediction model for use in the OCP (control rate formulation)."""
     model = AcadosModel()
 
     # load track parameters
@@ -75,6 +76,13 @@ def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
         derDelta,
     )
 
+    # constraints expressions
+    a_long = Fxd / m
+    a_lat = c2 * v * v * delta + Fxd * ca.sin(c1 * delta) / m    
+    con_h_expr = ca.vertcat(a_long, a_lat)
+    model.con_h_expr = con_h_expr
+    model.con_h_expr_e = con_h_expr
+
     # add labels for states, controls and time
     model.x_labels = [
         "$s$ [m]",
@@ -106,6 +114,7 @@ def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
 
 
 def car_model_sim(car_params: CarParams, dimensionless: bool) -> AcadosModel:
+    """Get the dynamics model for simulation, with the original states and inputs."""
     # get the OCP model
     model_ocp = car_model_ocp(car_params=car_params, dimensionless=dimensionless)
 
@@ -128,52 +137,30 @@ def car_model_sim(car_params: CarParams, dimensionless: bool) -> AcadosModel:
 def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> AcadosSimSolver:
     """Create and return an acados integrator for simulating the car model."""
 
-    sim = AcadosSim()
-    sim.model = car_model_sim(car_params=car_params, dimensionless=dimensionless)
-    sim.solver_options.T = car_params.dt.item()
+    acados_sim = AcadosSim()
+    acados_sim.model = car_model_sim(car_params=car_params, dimensionless=dimensionless)
+    acados_sim.solver_options.T = car_params.dt.item()
     if dimensionless:
-        sim.solver_options.T /= get_transformation_matrices(car_params)[2].item()
-    sim.solver_options.integrator_type = "ERK"
-    sim.solver_options.num_stages = 4
-    sim.solver_options.num_steps = 1
-    sim.code_export_directory = os.path.join("codegen", f"sim_{car_params.l.item():.3g}".replace(".", "_"))  # prevent overwriting
+        acados_sim.solver_options.T /= get_transformation_matrices(car_params)[2].item()
+    acados_sim.solver_options.integrator_type = "ERK"
+    acados_sim.solver_options.num_stages = 4
+    acados_sim.solver_options.num_steps = 1
+    acados_sim.code_export_directory = os.path.join("codegen", f"sim_{car_params.l.item():.3g}".replace(".", "_"))  # prevent overwriting
     print("Setting up acados integrator...")
 
-    acados_sim = AcadosSimSolver(
-        sim, 
+    acados_sim_solver = AcadosSimSolver(
+        acados_sim=acados_sim, 
         verbose=False,
         json_file=os.path.join("json", f"sim_{car_params.l.item():.3g}".replace(".", "_") + ".json")  # prevent overwriting
     )
 
-    return acados_sim
+    return acados_sim_solver
 
 
 def nondimensionalize_dynamics(car_params: CarParams, model: AcadosModel) -> AcadosModel:
+    """Convert the dynamics to the dimensionless form (without replacing the CasADi variables)."""
     x = model.x
     u = model.u
-
-    # states
-    s_hat = ca.SX.sym("s_hat")
-    n_hat = ca.SX.sym("n_hat")
-    alpha_hat = ca.SX.sym("alpha_hat")
-    v_hat = ca.SX.sym("v_hat")
-    D_hat = ca.SX.sym("D_hat")
-    delta_hat = ca.SX.sym("delta_hat")
-    x_hat = ca.vertcat(s_hat, n_hat, alpha_hat, v_hat, D_hat, delta_hat)
-
-    # controls
-    derD_hat = ca.SX.sym("derD_hat")
-    derDelta_hat = ca.SX.sym("derDelta_hat")
-    u_hat = ca.vertcat(derD_hat, derDelta_hat)
-
-    # state derivatives
-    sdot_hat = ca.SX.sym("sdot_hat")
-    ndot_hat = ca.SX.sym("ndot_hat")
-    alphadot_hat = ca.SX.sym("alphadot_hat")
-    vdot_hat = ca.SX.sym("vdot_hat")
-    Ddot_hat = ca.SX.sym("Ddot_hat")
-    deltadot_hat = ca.SX.sym("deltadot_hat")
-    xdot_hat = ca.vertcat(sdot_hat, ndot_hat, alphadot_hat, vdot_hat, Ddot_hat, deltadot_hat)
 
     Mx, Mu, Mt = get_transformation_matrices(car_params=car_params)
     x_scale = np.diagonal(Mx)
@@ -183,20 +170,17 @@ def nondimensionalize_dynamics(car_params: CarParams, model: AcadosModel) -> Aca
 
     # RHS states
     for k in range(len(x_scale)):
-        f_expl = ca.substitute(f_expl, x[k], x_scale[k] * x_hat[k])
+        f_expl = ca.substitute(f_expl, x[k], x_scale[k] * x[k])
 
     # RHS actions
     for k in range(len(u_scale)):
-        f_expl = ca.substitute(f_expl, u[k], u_scale[k] * u_hat[k])
+        f_expl = ca.substitute(f_expl, u[k], u_scale[k] * u[k])
 
     # LHS (derivatives)
     for k in range(len(dx_scale)):
         f_expl[k] /= dx_scale[k]
 
-    model.x = x_hat
-    model.u = u_hat
-    model.xdot = xdot_hat
-    model.f_impl_expr = xdot_hat - f_expl
+    model.f_impl_expr = model.xdot - f_expl
     model.f_expl_expr = f_expl
     model.name += "_dimensionless"
 
@@ -215,6 +199,7 @@ def nondimensionalize_dynamics(car_params: CarParams, model: AcadosModel) -> Aca
     model.t_label = "$\hat{t}$ [-]"
 
     return model
+
 
 def test_integrator(car_params: CarParams, model: AcadosModel):
     """Simulate the symbolic dynamics using CasADi."""
