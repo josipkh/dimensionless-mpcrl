@@ -1,8 +1,6 @@
 """Utility functions for dynamic matching and non-dimensionalization."""
 import numpy as np
 from race_car.utils.config import CarParams, get_default_car_params
-import os
-from pathlib import Path
 from copy import deepcopy
 
 
@@ -112,6 +110,12 @@ def get_similar_car_params(
 
     # the discount factor (already dimensionless) stays the same
 
+    # match the slack cost weights (sorry if it's unclear!)
+    new_params.slack_n_linear = reference_params.slack_n_linear * reference_params.l.item() / new_params.l.item()
+    new_params.slack_n_quadratic = reference_params.slack_n_quadratic * (reference_params.l.item() / new_params.l.item())**2
+    new_params.slack_acc_linear = reference_params.slack_acc_linear * mtcr3 / MtCr3
+    new_params.slack_acc_quadratic = reference_params.slack_acc_quadratic * (mtcr3 / MtCr3)**2
+
     return new_params
 
 
@@ -169,16 +173,16 @@ def compare_params(car1: CarParams, car2: CarParams):
 if __name__ == "__main__":
     from race_car.utils.track import get_track
     
-    car_params = get_default_car_params()
+    car_params_ref = get_default_car_params()
     car_params_sim = get_large_car_params()
     
     # check dynamic similarity
-    assert np.allclose(get_pi_groups(car_params), get_pi_groups(car_params_sim))
+    assert np.allclose(get_pi_groups(car_params_ref), get_pi_groups(car_params_sim))
 
     # check the track scaling
-    track_data = get_track(car_params=car_params)
+    track_data = get_track(car_params=car_params_ref)
     track_data_sim = get_track(car_params=car_params_sim)
-    l_ref = car_params.l.item()
+    l_ref = car_params_ref.l.item()
     l_sim = car_params_sim.l.item()
     assert np.allclose(track_data[0] / l_ref, track_data_sim[0] / l_sim)  # s
     assert np.allclose(track_data[1] / l_ref, track_data_sim[1] / l_sim)  # x
@@ -187,17 +191,25 @@ if __name__ == "__main__":
     assert np.allclose(track_data[4] * l_ref, track_data_sim[4] * l_sim)  # kappa
 
     # check the cost matrices
-    Q, R, Q_e = get_cost_matrices(car_params)
+    Q, R, Q_e = get_cost_matrices(car_params_ref)
     q, r, q_e = get_cost_matrices(car_params_sim)
-    Mx, Mu, Mt = get_transformation_matrices(car_params)
+    Mx, Mu, Mt = get_transformation_matrices(car_params_ref)
     mx, mu, mt = get_transformation_matrices(car_params_sim)
     assert np.allclose(Mx @ Q @ Mx, mx @ q @ mx)
     assert np.allclose(Mu @ R @ Mu, mu @ r @ mu)
     assert np.allclose(Mx @ Q_e @ Mx, mx @ q_e @ mx)
 
     # check the sampling time
-    assert np.allclose(car_params.dt / Mt, car_params_sim.dt / mt)
+    assert np.allclose(car_params_ref.dt / Mt, car_params_sim.dt / mt)
 
-    compare_params(car_params, car_params_sim)
+    # check the acceleration limits
+    acc_scale_ref = 1 / (car_params_ref.l.item() * car_params_ref.cr3.item()**2)
+    acc_scale_sim = 1 / (car_params_sim.l.item() * car_params_sim.cr3.item()**2)
+    assert np.allclose(car_params_ref.a_lat_max / acc_scale_ref, car_params_sim.a_lat_max / acc_scale_sim)
+    assert np.allclose(car_params_ref.a_lat_min / acc_scale_ref, car_params_sim.a_lat_min / acc_scale_sim)
+    assert np.allclose(car_params_ref.a_long_max / acc_scale_ref, car_params_sim.a_long_max / acc_scale_sim)
+    assert np.allclose(car_params_ref.a_long_min / acc_scale_ref, car_params_sim.a_long_min / acc_scale_sim)
+
+    compare_params(car_params_ref, car_params_sim)
 
     print("All checks passed.")

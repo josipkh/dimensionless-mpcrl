@@ -65,6 +65,12 @@ class CarParams:
     xNref5: np.ndarray
     xNref6: np.ndarray
 
+    # Slack cost weights
+    slack_n_linear: np.ndarray          # linear cost on the position constraint [1/m]
+    slack_n_quadratic: np.ndarray       # quadratic cost on the position constraint [1/m^2]
+    slack_acc_linear: np.ndarray        # linear cost on the acceleration constraint [1/(m/s^2)]
+    slack_acc_quadratic: np.ndarray     # quadratic cost on the acceleration constraint [1/(m/s^2)^2]
+
     # Constraints
     a_lat_max: np.ndarray   # maximum lateral acceleration [m/s^2]
     a_lat_min: np.ndarray   # minimum lateral acceleration [m/s^2]
@@ -143,6 +149,11 @@ def get_default_car_params() -> CarParams:
         xNref4=np.array([0.0]),
         xNref5=np.array([0.0]),
         xNref6=np.array([0.0]),
+
+        slack_n_linear=np.array([100.0]),
+        slack_n_quadratic=np.array([1.0]),
+        slack_acc_linear=np.array([100.0]),
+        slack_acc_quadratic=np.array([1.0]),
 
         a_lat_max=np.array([+4.0]),
         a_lat_min=np.array([-4.0]),
