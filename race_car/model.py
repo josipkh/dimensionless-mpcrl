@@ -9,6 +9,8 @@ from race_car.utils.scaling import get_transformation_matrices
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
 
 
+include_terminal_acc_constraint = True  # not set in the original example
+
 def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
     """Get the prediction model for use in the OCP (control rate formulation)."""
     model = AcadosModel()
@@ -81,7 +83,8 @@ def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
     a_lat = c2 * v * v * delta + Fxd * ca.sin(c1 * delta) / m    
     con_h_expr = ca.vertcat(a_long, a_lat)
     model.con_h_expr = con_h_expr
-    model.con_h_expr_e = con_h_expr
+    if include_terminal_acc_constraint:
+        model.con_h_expr_e = con_h_expr
 
     # add labels for states, controls and time
     model.x_labels = [
@@ -93,7 +96,7 @@ def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
         r"$\delta$ [rad]",
     ]
     model.u_labels = [
-        r"$\dot{\D}$ [rad/s]",
+        r"$\dot{D}$ [1/s]",
         r"$\dot{\delta}$ [rad/s]",
     ]
     model.t_label = "$t$ [s]"
@@ -161,20 +164,23 @@ def nondimensionalize_dynamics(car_params: CarParams, model: AcadosModel) -> Aca
     """Convert the dynamics to the dimensionless form (without replacing the CasADi variables)."""
     x = model.x
     u = model.u
+    f_expl = model.f_expl_expr
+    con_h_expr = model.con_h_expr
 
     Mx, Mu, Mt = get_transformation_matrices(car_params=car_params)
     x_scale = np.diagonal(Mx)
     u_scale = np.diagonal(Mu)
     dx_scale = x_scale / Mt[0]
-    f_expl = model.f_expl_expr
 
-    # RHS states
+    # RHS/constraints states
     for k in range(len(x_scale)):
         f_expl = ca.substitute(f_expl, x[k], x_scale[k] * x[k])
+        con_h_expr = ca.substitute(con_h_expr, x[k], x_scale[k] * x[k])
 
-    # RHS actions
+    # RHS/constraints actions
     for k in range(len(u_scale)):
         f_expl = ca.substitute(f_expl, u[k], u_scale[k] * u[k])
+        con_h_expr = ca.substitute(con_h_expr, u[k], u_scale[k] * u[k])
 
     # LHS (derivatives)
     for k in range(len(dx_scale)):
@@ -182,6 +188,9 @@ def nondimensionalize_dynamics(car_params: CarParams, model: AcadosModel) -> Aca
 
     model.f_impl_expr = model.xdot - f_expl
     model.f_expl_expr = f_expl
+    model.con_h_expr = con_h_expr
+    if include_terminal_acc_constraint:
+        model.con_h_expr_e = con_h_expr
     model.name += "_dimensionless"
 
     model.x_labels = [
@@ -218,29 +227,27 @@ def test_integrator(car_params: CarParams, model: AcadosModel):
 
 
 if __name__ == "__main__":
-    from race_car.utils.scaling import get_large_car_params
+    from race_car.utils.scaling import get_large_car_params, get_transformation_matrices
     import matplotlib.pyplot as plt
 
-    # test the dimensionless or dimensional formulation
-    dimensionless = True
+    # create the dimensional and dimensionless integrators
+    car_params_ref = get_large_car_params()
 
-    # create the integrators for the small and large car
-    car_params_ref = get_default_car_params()
-    car_params_sim = get_large_car_params()
-
-    integrator_ref = export_acados_integrator(car_params=car_params_ref, dimensionless=dimensionless)
-    integrator_sim = export_acados_integrator(car_params=car_params_sim, dimensionless=dimensionless)
+    integrator_ref = export_acados_integrator(car_params=car_params_ref, dimensionless=False)
+    integrator_sim = export_acados_integrator(car_params=car_params_ref, dimensionless=True)
     print("Integrators successfully created.")
 
-    # test_integrator(car_params=car_params_ref, model=integrator_ref.acados_sim.model)
-    # test_integrator(car_params=car_params_sim, model=integrator_sim.acados_sim.model)
-
     # compare the integrators
+    Mx = get_transformation_matrices(car_params_ref)[0]
+    Mx = Mx[:4,:4]
+    Mx_inv = np.linalg.inv(Mx)
+
     x0_ref = np.array([0.0, 0.0, 0.0, 0.0])
     x0_sim = x0_ref
     x_log_ref = []
     x_log_sim = []
     u_log = []
+
     for i in range(100):
         # choose a random input
         u_rand = np.random.uniform(low=[-1.0, -0.4], high=[+1.0, +0.4])
@@ -252,9 +259,10 @@ if __name__ == "__main__":
         x0_ref = x_next_ref
 
         # simulate the similar car
-        x_next_sim = integrator_sim.simulate(x=x0_sim, u=u_rand)
-        x_log_sim.append(x_next_sim)        
-        x0_sim = x_next_sim
+        x_next_sim = integrator_sim.simulate(x=Mx_inv @ x0_sim, u=u_rand)
+        x_log_sim.append(Mx @ x_next_sim)        
+        x0_sim = Mx @ x_next_sim
+
     print("Simulation successful.")
     print("Final state ref: ", x_log_ref[-1])
     print("Final state sim: ", x_log_sim[-1])
@@ -266,7 +274,7 @@ if __name__ == "__main__":
     nx = 4
     nu = 2
     fig, ax = plt.subplots(nx + nu, 1, sharex=True)
-    labels = ["ref", "sim"]
+    labels = ["dimensional", "dimensionless"]
     for i in range(nx):
         ax[i].plot(obs_ref_log[:, i], color="b", label=labels[0])
         ax[i].plot(obs_sim_log[:, i], color="r", linestyle="--", label=labels[1])
@@ -288,11 +296,10 @@ if __name__ == "__main__":
     fig.align_ylabels(ax)
     plt.show(block=False)
 
-    if dimensionless:
-        if np.allclose(x_log_ref, x_log_sim):
-            print("Results match.")
-        else:
-            print("Results do not match.")
+    if np.allclose(x_log_ref, x_log_sim):
+        print("Results match.")
+    else:
+        print("Results do not match.")
 
     print("Press ENTER to close the plot")
     input()
