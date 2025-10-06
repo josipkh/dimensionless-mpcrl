@@ -8,7 +8,6 @@ from race_car.utils.config import CarParams, get_default_car_params
 from race_car.utils.scaling import get_transformation_matrices
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
 
-
 include_terminal_acc_constraint = True  # not set in the original example
 
 def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
