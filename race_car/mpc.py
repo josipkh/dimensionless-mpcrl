@@ -1,10 +1,15 @@
 from race_car.utils.config import CarParams
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosOcpIterate, AcadosCasadiOcpSolver
-from model import car_model_ocp
+from model import car_model_ocp, export_acados_integrator
 import numpy as np
 from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
+from race_car.utils.track import get_track
 import scipy.linalg
 import casadi as ca
+import os
+import time
+from race_car.utils.plotting import plot_results_track
+import matplotlib.pyplot as plt
 
 # settings for terminal constraints and slacks
 from model import include_terminal_acc_constraint
@@ -447,13 +452,6 @@ def compare_formulation(car_params: CarParams, solver: str):
 
 if __name__ == "__main__":
     from race_car.utils.config import get_default_car_params
-    from race_car.utils.scaling import get_large_car_params, get_transformation_matrices
-    from race_car.utils.track import get_track
-    from race_car.utils.plotting import plot_results_classic, plot_results_track, plot_lat_acc
-    from model import export_acados_integrator
-    import os
-    import time
-    import matplotlib.pyplot as plt
 
     car_params = get_default_car_params()
     # compare_formulation(car_params, solver="ipopt")

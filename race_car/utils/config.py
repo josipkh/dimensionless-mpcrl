@@ -62,8 +62,8 @@ def get_default_car_params() -> CarParams:
 
         cm1=np.array([0.28]),
         cm2=np.array([0.05]),
-        cr0=np.array([0.011]),  # switched with cr2 in the paper
-        cr2=np.array([0.006]),  # values taken from the code
+        cr0=np.array([0.011]),  # switched with cr2 in the paper, values taken from the code
+        cr2=np.array([0.006]),  # see also Table I here: https://cdn.syscop.de/publications/Verschueren2016b.pdf
         cr3=np.array([5.0]),
 
         q_diag_sqrt=np.sqrt([
