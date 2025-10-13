@@ -4,7 +4,7 @@ import os
 import casadi as ca
 import numpy as np
 from race_car.utils.track import get_track
-from race_car.utils.config import CarParams, get_default_car_params
+from race_car.utils.config import CarParams
 from race_car.utils.scaling import get_transformation_matrices
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
 

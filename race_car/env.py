@@ -8,20 +8,23 @@ from race_car.utils.track import get_track
 from model import export_acados_integrator
 
 
-class RaceCarEnvDimensionless(gym.Env):
+class RaceCarEnv(gym.Env):
     """TODO: write me."""
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
     def __init__(
         self,
-        render_mode: str | None = None,
-        car_params: CarParams | None = None,
-        dimensionless: bool = True,
-        mpc_car_params: CarParams | None = None,
+        render_mode: str | None,
+        car_params: CarParams,
+        dimensionless: bool,
+        mpc_car_params: CarParams,
     ):
         if car_params is None or mpc_car_params is None:
-            raise ValueError("Car parameters not provided in the env.")
+            input("Car parameters not provided in the env, press Enter to continue with default ones.")
+            car_params = mpc_car_params = get_default_car_params()
+            dimensionless = False
+            # raise ValueError()
 
         self.car_params = car_params
         self.dimensionless = dimensionless  # whether to use the dimensionless formulation
@@ -165,14 +168,14 @@ if __name__ == "__main__":
 
     # create envs for the default and similar parameters
     params_ref = get_default_car_params()
-    env_ref = RaceCarEnvDimensionless(
+    env_ref = RaceCarEnv(
         car_params=params_ref,
         dimensionless=dimensionless,
         mpc_car_params=params_ref
     )
 
     params_sim = get_large_car_params()
-    env_sim = RaceCarEnvDimensionless(
+    env_sim = RaceCarEnv(
         car_params=params_sim,
         dimensionless=dimensionless,
         mpc_car_params=params_sim

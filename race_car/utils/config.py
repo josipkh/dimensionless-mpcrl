@@ -118,47 +118,11 @@ def get_default_car_params() -> CarParams:
 
 def create_acados_params(car_params: CarParams) -> tuple[AcadosParameter, ...]:
     """Create a list of parameters to be handled within acados"""   
-
-    # list here all the fixed parameters
-    params = [
-        AcadosParameter(name=k, default=v) for k, v in asdict(car_params).items() if k in [
-            "m",
-            "l",
-            "lr",
-            "cm1",
-            "cm2",
-            "cr0",
-            "cr2",
-            "cr3",
-
-            "slack_n_linear",
-            "slack_n_quadratic",
-            "slack_acc_linear",
-            "slack_acc_quadratic",
-            "a_lat_max",
-            "a_lat_min",
-            "a_long_max",
-            "a_long_min",
-            "n_max",
-            "n_min",
-            "D_max",
-            "D_min",
-            "delta_max",
-            "delta_min",
-            "dD_max",
-            "dD_min",
-            "ddelta_max",
-            "ddelta_min",
-            "dt",
-            "gamma",
-            "N",
-        ]
-    ]
-
-    # add the learnable cost weights
+    # add the learnable cost weights and non-learnable progress reference
+    # TODO: set the correct cost weight limits
     cost_min = 0.0      # lower limit on the individual weights
     cost_max = 100.0    # upper limit on the individual weights
-    params.extend([
+    params = [
         AcadosParameter(
             name="q_diag_sqrt",
             default=car_params.q_diag_sqrt,
@@ -185,8 +149,14 @@ def create_acados_params(car_params: CarParams) -> tuple[AcadosParameter, ...]:
                 high=np.sqrt(cost_max * np.ones_like(car_params.qe_diag_sqrt)),
                 dtype=np.float64),
             interface="learnable",
+        ),
+        AcadosParameter(
+            "sref",
+            default=np.array([0.0]),
+            interface="non-learnable",
+            end_stages=list(range(car_params.N.item() + 1)),
         )
-    ])
+    ]
     return tuple(params)
 
 
