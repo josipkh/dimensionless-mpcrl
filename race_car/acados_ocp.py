@@ -1,6 +1,6 @@
 from race_car.utils.config import CarParams
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosOcpIterate, AcadosCasadiOcpSolver
-from model import car_model_ocp, export_acados_integrator
+from race_car.model import car_model_ocp, export_acados_integrator
 import numpy as np
 from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
 from race_car.utils.track import get_track
@@ -29,8 +29,6 @@ def export_ocp(car_params: CarParams, dimensionless: bool) -> AcadosOcp:
     ocp.model = car_model_ocp(car_params=car_params, dimensionless=dimensionless)
 
     # constraints on states
-    ns = 0  # total number of slack variables on intermediate nodes
-    ns_e = 0  # total number of slack variables on the terminal node
     z = z_e = np.array([])  # linear cost weights for slacks
     Z = Z_e = np.array([])  # quadratic cost weights for slacks
 
@@ -109,19 +107,18 @@ def export_ocp(car_params: CarParams, dimensionless: bool) -> AcadosOcp:
     ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
     ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"
     ocp.solver_options.nlp_solver_type = "SQP"
-    ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
     ocp.solver_options.integrator_type = "ERK"
     ocp.solver_options.sim_method_num_stages = 4
     ocp.solver_options.sim_method_num_steps = 3
     ocp.solver_options.nlp_solver_max_iter = 100
     ocp.solver_options.tol = 1e-4
 
-    ocp.solver_options.nlp_solver_tol_stat = 1e-1  # stationarity residuals don't converge
-    # ocp.solver_options.globalization = "FUNNEL_L1PEN_LINESEARCH"  # "MERIT_BACKTRACKING"
-    # ocp.solver_options.globalization_full_step_dual = True
-    # ocp.solver_options.print_level = 1
-    # ocp.solver_options.qptol = ocp.solver_options.tol / 1000
-    # ocp.solver_options.nlp_solver_ext_qp_res = 1
+    ocp.solver_options.nlp_solver_tol_stat = 1e-1  # stationarity residuals don't converge if this is lower
+    # ocp.solver_options.globalization = "FUNNEL_L1PEN_LINESEARCH"  # "MERIT_BACKTRACKING"  # add step correction
+    # ocp.solver_options.globalization_full_step_dual = True  # when using funnel globalization
+    # ocp.solver_options.print_level = 1  # to display iterate information
+    # ocp.solver_options.qptol = ocp.solver_options.tol / 1000  # solve QPs more accurately
+    # ocp.solver_options.nlp_solver_ext_qp_res = 1  # print out QP residuals too
 
     # specific codegen folder to prevent overwriting
     ocp.code_export_directory = os.path.join("codegen", f"ocp_{car_params.l.item():.3g}".replace(".", "_"))
@@ -307,25 +304,23 @@ def test_closed_loop(car_params: CarParams, dimensionless: bool):
             simX = simX[N0:i, :]
             simU = simU[N0:i, :]
             break
+
+    total_time = Nsim * car_params.dt.item()
     
-    # print some stats
-    def format_number(x):
-        if abs(x) >= 1:
-            return "{:.2f}".format(x)
-        else:
-            return "{:.3g}".format(x)  # 3 significant digits
-    
+    # print some stats    
     print("Average computation time: {} s".format(format_number(tcomp_sum / Nsim)))
     print("Maximum computation time: {} s".format(format_number(tcomp_max)))
     print("Average speed: {} m/s".format(format_number(np.average(simX[:, 3]))))
-    print("Lap time: {} s".format(format_number(Nsim * car_params.dt.item())))
+    print("Lap time: {} s".format(format_number(total_time)))
     print("Number of solver fails: {} ({} %)".format(n_solver_fails, format_number(100*n_solver_fails/Nsim)))
 
     # plot the results
-    t = np.linspace(0.0, Nsim * car_params.dt.item(), Nsim)
+    t = np.linspace(0.0, total_time, Nsim)
     # plot_results_classic(simX, simU, t)
     # plot_lat_acc(simX, simU, t, car_params)
     plot_results_track(simX, car_params, t[-1])
+
+    return total_time
 
 
 def compare_iterates(it1: AcadosOcpIterate, it2: AcadosOcpIterate,
@@ -448,6 +443,14 @@ def compare_formulation(car_params: CarParams, solver: str):
     #     axes[0].set_title("dimensionless OCP + scaling" if k_axes == 1 else "dimensional OCP")
     # fig.align_ylabels()
     # plt.show(block=False)
+    
+
+def format_number(x):
+    """For more readable printing of floating numbers."""
+    if abs(x) >= 1:
+        return "{:.2f}".format(x)
+    else:
+        return "{:.3g}".format(x)  # 3 significant digits
 
 
 if __name__ == "__main__":
