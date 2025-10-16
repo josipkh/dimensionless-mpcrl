@@ -218,12 +218,12 @@ def export_acados_casadi_ocp_solver(car_params: CarParams, dimensionless: bool) 
     return acados_casadi_ocp_solver
 
 
-def test_closed_loop(car_params: CarParams, dimensionless: bool):
+def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimensionless: bool):
     """Runs a closed-loop simulation with the given car parameters."""
-    acados_ocp_solver = export_acados_ocp_solver(car_params=car_params, dimensionless=dimensionless)
+    acados_ocp_solver = export_acados_ocp_solver(car_params=mpc_car_params, dimensionless=dimensionless)
 
     # define the transformation functions
-    Mx, Mu, _ = get_transformation_matrices(car_params=car_params)
+    Mx, Mu, _ = get_transformation_matrices(car_params=mpc_car_params)
     Mx_inv = np.linalg.inv(Mx)
     # Mu_inv = np.linalg.inv(Mu)
     dim2nondim_x = lambda x: Mx_inv @ x if dimensionless else x
@@ -235,7 +235,7 @@ def test_closed_loop(car_params: CarParams, dimensionless: bool):
     integrator = export_acados_integrator(car_params=car_params, dimensionless=False)
 
     # get the track data
-    l = car_params.l.item()
+    l = mpc_car_params.l.item()
     s_max = get_track(car_params)[0][-1]  # total track length
     sref_N = 46.5 * (l if not dimensionless else 1.0)  # terminal progress reference ("carrot")
 
@@ -458,7 +458,7 @@ if __name__ == "__main__":
 
     car_params = get_default_car_params()
     # compare_formulation(car_params, solver="ipopt")
-    test_closed_loop(car_params=car_params, dimensionless=False)
+    test_closed_loop(car_params=car_params, mpc_car_params=car_params, dimensionless=False)
 
     if plt.get_fignums():
         input("Press Enter to continue...")  # keep the plots open
