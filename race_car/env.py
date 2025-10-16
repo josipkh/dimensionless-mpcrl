@@ -5,7 +5,7 @@ import numpy as np
 from race_car.utils.config import CarParams, get_default_car_params
 from race_car.utils.scaling import get_transformation_matrices
 from race_car.utils.track import get_track
-from model import export_acados_integrator
+from race_car.model import export_acados_integrator
 
 
 class RaceCarEnv(gym.Env):
@@ -169,6 +169,7 @@ if __name__ == "__main__":
     # create envs for the default and similar parameters
     params_ref = get_default_car_params()
     env_ref = RaceCarEnv(
+        render_mode="human",
         car_params=params_ref,
         dimensionless=dimensionless,
         mpc_car_params=params_ref
@@ -176,6 +177,7 @@ if __name__ == "__main__":
 
     params_sim = get_large_car_params()
     env_sim = RaceCarEnv(
+        render_mode="human",
         car_params=params_sim,
         dimensionless=dimensionless,
         mpc_car_params=params_sim

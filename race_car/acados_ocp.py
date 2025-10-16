@@ -12,7 +12,7 @@ from race_car.utils.plotting import plot_results_track
 import matplotlib.pyplot as plt
 
 # settings for terminal constraints and slacks
-from model import include_terminal_acc_constraint
+from race_car.model import include_terminal_acc_constraint
 use_slacks_on_acc_constraints = True
 use_slacks_on_lat_position = True
 include_terminal_position_constraint = True
@@ -218,7 +218,7 @@ def export_acados_casadi_ocp_solver(car_params: CarParams, dimensionless: bool) 
     return acados_casadi_ocp_solver
 
 
-def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimensionless: bool):
+def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimensionless: bool, show_plots: bool = True):
     """Runs a closed-loop simulation with the given car parameters."""
     acados_ocp_solver = export_acados_ocp_solver(car_params=mpc_car_params, dimensionless=dimensionless)
 
@@ -315,10 +315,11 @@ def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimension
     print("Number of solver fails: {} ({} %)".format(n_solver_fails, format_number(100*n_solver_fails/Nsim)))
 
     # plot the results
-    t = np.linspace(0.0, total_time, Nsim)
-    # plot_results_classic(simX, simU, t)
-    # plot_lat_acc(simX, simU, t, car_params)
-    plot_results_track(simX, car_params, t[-1])
+    if show_plots:
+        t = np.linspace(0.0, total_time, Nsim)
+        # plot_results_classic(simX, simU, t)
+        # plot_lat_acc(simX, simU, t, car_params)
+        plot_results_track(simX, car_params, t[-1])
 
     return total_time
 

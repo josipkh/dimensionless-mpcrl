@@ -35,7 +35,6 @@ def plot_track(car_params: CarParams):
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show(block=False)
 
 
 def plot_Fxd_surface(car_params: CarParams):
@@ -77,7 +76,6 @@ def plot_Fxd_surface(car_params: CarParams):
     ax.set_zlabel('Fxd [N]')
     ax.set_title('Fxd vs Speed and Throttle (L = {:.2f} m)'.format(car_params.l.item()))
     plt.tight_layout()
-    plt.show(block=False)
 
 
 def plot_Fxd_vs_D_slices(car_params: CarParams, num_slices: int = 10):
@@ -112,7 +110,6 @@ def plot_Fxd_vs_D_slices(car_params: CarParams, num_slices: int = 10):
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show(block=False)
 
 
 def plot_results_track(state_log: np.ndarray, car_params: CarParams, total_time: float):
@@ -182,8 +179,6 @@ def plot_results_track(state_log: np.ndarray, car_params: CarParams, total_time:
         xi2[i], yi2[i], _, _ = frenet2global(Sref[k], nrefi + 1.25 * distance, 0, 0, car_params)
         plt.plot([xi1[i], xi2[i]], [yi1[i], yi2[i]], color='black')
 
-    plt.show(block=False)
-
 
 def plot_results_classic(simX, simU, t):
     """Plot the states and inputs over time, in a classic way."""
@@ -202,7 +197,6 @@ def plot_results_classic(simX, simU, t):
     plt.xlabel('t')
     plt.legend(['s','n','alpha','v','D','delta'])
     plt.grid(True)
-    plt.show(block=False)
 
 
 def plot_lat_acc(simX, simU, t, car_params):
@@ -218,7 +212,6 @@ def plot_lat_acc(simX, simU, t, car_params):
     plt.legend(['alat','alat_min/max'])
     plt.xlabel('t')
     plt.ylabel('alat[m/s^2]')
-    plt.show(block=False)
 
 
 def calculate_acc(x, car_params):
@@ -268,6 +261,7 @@ if __name__ == "__main__":
     plot_results_classic(simX, simU, t)
     plot_lat_acc(simX, simU, t, car_params_sim)
 
+    plt.show(block=False)
     if plt.get_fignums():
         input("Press Enter to continue...")  # keep the plots open
         plt.close('all')
