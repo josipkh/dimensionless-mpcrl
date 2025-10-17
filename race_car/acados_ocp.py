@@ -218,7 +218,7 @@ def export_acados_casadi_ocp_solver(car_params: CarParams, dimensionless: bool) 
     return acados_casadi_ocp_solver
 
 
-def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimensionless: bool, show_plots: bool = True):
+def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimensionless: bool, show_plots: bool):
     """Runs a closed-loop simulation with the given car parameters."""
     acados_ocp_solver = export_acados_ocp_solver(car_params=mpc_car_params, dimensionless=dimensionless)
 
@@ -276,6 +276,11 @@ def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimension
             # plot_results_classic(simX=simX[:i,:], simU=simU[:i,:], t=list(range(i)))
             n_solver_fails += 1
 
+        # exit if there are too many solver fails
+        if n_solver_fails > 20:
+            print("Too many solver fails, exiting the simulation")
+            return Nsim * car_params.dt.item()  # return the max time
+        
         elapsed = time.time() - t
 
         # record timings
@@ -459,7 +464,7 @@ if __name__ == "__main__":
 
     car_params = get_default_car_params()
     # compare_formulation(car_params, solver="ipopt")
-    test_closed_loop(car_params=car_params, mpc_car_params=car_params, dimensionless=False)
+    test_closed_loop(car_params=car_params, mpc_car_params=car_params, dimensionless=False, show_plots=True)
 
     if plt.get_fignums():
         input("Press Enter to continue...")  # keep the plots open
