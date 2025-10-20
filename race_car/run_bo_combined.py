@@ -22,8 +22,8 @@ def objective(trial: optuna.Trial, show_plots: bool) -> float:
     trial.set_user_attr("car_size", car_size)  # keep track of which system was used
 
     # use generic limits for cost weights
-    q_min = 1e-6
-    q_max = 1e+6
+    q_min = 1e-4
+    q_max = 1e+4
 
     # parametrize the cost on the first three states (input cost fixed)
     q_s = trial.suggest_float('q_s', q_min, q_max, log=True)

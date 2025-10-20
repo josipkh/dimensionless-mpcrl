@@ -80,7 +80,7 @@ if __name__ == "__main__":
     
     car_params = get_default_car_params()
     mpc_car_params = car_params  # no mismatch
-    dimensionless = True
+    dimensionless = False
     show_plots = False
 
     # run a classic closed-loop test
