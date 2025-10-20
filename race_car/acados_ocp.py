@@ -8,7 +8,7 @@ import scipy.linalg
 import casadi as ca
 import os
 import time
-from race_car.utils.plotting import plot_results_track
+from race_car.utils.plotting import plot_results_track, plot_results_classic, plot_lat_acc
 import matplotlib.pyplot as plt
 
 # settings for terminal constraints and slacks
@@ -218,7 +218,7 @@ def export_acados_casadi_ocp_solver(car_params: CarParams, dimensionless: bool) 
     return acados_casadi_ocp_solver
 
 
-def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimensionless: bool, show_plots: bool):
+def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimensionless: bool, show_plots: bool, stop_on_fail: bool = True):
     """Runs a closed-loop simulation with the given car parameters."""
     acados_ocp_solver = export_acados_ocp_solver(car_params=mpc_car_params, dimensionless=dimensionless)
 
@@ -277,7 +277,7 @@ def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimension
             n_solver_fails += 1
 
         # exit if there are too many solver fails
-        if n_solver_fails > 20:
+        if n_solver_fails > 20 and stop_on_fail:
             print("Too many solver fails, exiting the simulation")
             return Nsim * car_params.dt.item()  # return the max time
         
@@ -322,8 +322,8 @@ def test_closed_loop(car_params: CarParams, mpc_car_params: CarParams, dimension
     # plot the results
     if show_plots:
         t = np.linspace(0.0, total_time, Nsim)
-        # plot_results_classic(simX, simU, t)
-        # plot_lat_acc(simX, simU, t, car_params)
+        plot_results_classic(simX, simU, t)
+        plot_lat_acc(simX, simU, t, car_params)
         plot_results_track(simX, car_params, t[-1])
 
     return total_time
@@ -461,11 +461,19 @@ def format_number(x):
 
 if __name__ == "__main__":
     from race_car.utils.config import get_default_car_params
+    from race_car.utils.scaling import get_large_car_params
 
-    car_params = get_default_car_params()
-    # compare_formulation(car_params, solver="ipopt")
-    test_closed_loop(car_params=car_params, mpc_car_params=car_params, dimensionless=False, show_plots=True)
+    for car_params in [get_default_car_params(), get_large_car_params()]:
+        # compare_formulation(car_params, solver="ipopt")
+        test_closed_loop(
+            car_params=car_params,
+            mpc_car_params=car_params,
+            dimensionless=True,
+            show_plots=True,
+            stop_on_fail=False
+        )
 
-    if plt.get_fignums():
-        input("Press Enter to continue...")  # keep the plots open
-        plt.close('all')
+        if plt.get_fignums():
+            plt.show(block=False)
+            input("Press Enter to continue...")  # keep the plots open
+            plt.close('all')

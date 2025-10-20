@@ -159,6 +159,29 @@ def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> Acad
     return acados_sim_solver
 
 
+def export_acados_integrator_ocp(car_params: CarParams, dimensionless: bool) -> AcadosSimSolver:
+    """Create and return an acados integrator for the OCP car model."""
+
+    acados_sim = AcadosSim()
+    acados_sim.model = car_model_ocp(car_params=car_params, dimensionless=dimensionless)
+    acados_sim.solver_options.T = car_params.dt.item()
+    if dimensionless:
+        acados_sim.solver_options.T /= get_transformation_matrices(car_params)[2].item()
+    acados_sim.solver_options.integrator_type = "ERK"
+    acados_sim.solver_options.num_stages = 4
+    acados_sim.solver_options.num_steps = 1
+    acados_sim.code_export_directory = os.path.join("codegen", f"sim_ocp_{car_params.l.item():.3g}".replace(".", "_"))  # prevent overwriting
+    print("Setting up acados integrator...")
+
+    acados_sim_solver = AcadosSimSolver(
+        acados_sim=acados_sim, 
+        verbose=False,
+        json_file=os.path.join("json", f"sim_ocp_{car_params.l.item():.3g}".replace(".", "_") + ".json")  # prevent overwriting
+    )
+
+    return acados_sim_solver
+
+
 def nondimensionalize_dynamics(car_params: CarParams, model: AcadosModel) -> AcadosModel:
     """Convert the dynamics to the dimensionless form (without replacing the CasADi variables)."""
     x = model.x
@@ -184,6 +207,10 @@ def nondimensionalize_dynamics(car_params: CarParams, model: AcadosModel) -> Aca
     # LHS (derivatives)
     for k in range(len(dx_scale)):
         f_expl[k] /= dx_scale[k]
+
+    # scale the acceleration constraints to get dimensionless expressions
+    acc_scale = 1 / (car_params.l.item() * car_params.cr3.item()**2)
+    con_h_expr /= acc_scale
 
     model.f_impl_expr = model.xdot - f_expl
     model.f_expl_expr = f_expl
