@@ -1,12 +1,11 @@
 import gymnasium as gym
 import numpy as np
 from config import CartPoleParams, get_default_cartpole_params
-from model import export_acados_integrator
 from utils import get_transformation_matrices
 from scipy.integrate import solve_ivp
 
 
-class CartpoleSwingupEnvDimensionless(gym.Env):
+class CartpoleEnvDimensionless(gym.Env):
     """
     An environment of a pendulum on a cart meant for swinging
     the pole into an upright position and holding it there.
@@ -54,17 +53,13 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
 
     def __init__(
         self,
-        render_mode: str | None = None,
-        cartpole_params: CartPoleParams | None = None,
-        use_acados_integrator: bool = False,
-        dimensionless: bool = True,
-        mpc_cartpole_params: CartPoleParams | None = None,
+        cartpole_params: CartPoleParams,
+        mpc_cartpole_params: CartPoleParams,
+        dimensionless: bool,
+        render_mode: str | None,
     ):
-        if cartpole_params is None or mpc_cartpole_params is None:
-            raise ValueError("Cartpole parameters not provided in the env.")
-
         if dimensionless:
-            # use agent instead of env parameters
+            # use parameters from mpc (possibly wrong) instead of env
             self.Ms, self.Ma, self.Mt = get_transformation_matrices(
                 mpc_cartpole_params
             )  # s(physical) = Ms * s(dimensionless)
@@ -79,58 +74,53 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
         self.x_threshold = 3 * self.length  # [m] cart position
         self.dimensionless = dimensionless  # whether to use the dimensionless formulation
 
-        self.use_acados_integrator = use_acados_integrator
-        if use_acados_integrator:
-            self.integrator = export_acados_integrator(cartpole_params=cartpole_params)
-        else:
+        def f_explicit(s, a, cartpole_params):
+            g = cartpole_params.g.item()
+            M = cartpole_params.M.item()
+            m = cartpole_params.m.item()
+            l = cartpole_params.l.item()
+            mu_f = cartpole_params.mu_f.item()
 
-            def f_explicit(s, a, cartpole_params):
-                g = cartpole_params.g.item()
-                M = cartpole_params.M.item()
-                m = cartpole_params.m.item()
-                l = cartpole_params.l.item()
-                mu_f = cartpole_params.mu_f.item()
+            _, theta, dx, dtheta = s
+            F = a.item()
+            cos_theta = np.cos(theta)
+            sin_theta = np.sin(theta)
 
-                _, theta, dx, dtheta = s
-                F = a.item()
-                cos_theta = np.cos(theta)
-                sin_theta = np.sin(theta)
+            # model without friction
+            # denominator = M + m - m * cos_theta * cos_theta
+            # ddx = (-m * l * sin_theta * dtheta * dtheta
+            #        + m * g * cos_theta * sin_theta
+            #        + F) / denominator
+            # ddtheta = (
+            #           -m * l * cos_theta * sin_theta * dtheta * dtheta
+            #           + F * cos_theta
+            #           + (M + m) * g * sin_theta
+            #         ) / (l * denominator)
 
-                # model without friction
-                # denominator = M + m - m * cos_theta * cos_theta
-                # ddx = (-m * l * sin_theta * dtheta * dtheta
-                #        + m * g * cos_theta * sin_theta
-                #        + F) / denominator
-                # ddtheta = (
-                #           -m * l * cos_theta * sin_theta * dtheta * dtheta
-                #           + F * cos_theta
-                #           + (M + m) * g * sin_theta
-                #         ) / (l * denominator)
+            # model with friction
+            ddx = (
+                -2 * (m * l) * (dtheta**2) * sin_theta
+                + 3 * m * g * sin_theta * cos_theta
+                + 4 * F
+                - 4 * mu_f * dx
+            ) / (4 * (m + M) - 3 * m * cos_theta**2)
+            ddtheta = (
+                -3 * (m * l) * (dtheta**2) * sin_theta * cos_theta
+                + 6 * (m + M) * g * sin_theta
+                + 6 * (F - mu_f * dx) * cos_theta
+            ) / (+4 * l * (m + M) - 3 * (m * l) * cos_theta**2)
 
-                # model with friction
-                ddx = (
-                    -2 * (m * l) * (dtheta**2) * sin_theta
-                    + 3 * m * g * sin_theta * cos_theta
-                    + 4 * F
-                    - 4 * mu_f * dx
-                ) / (4 * (m + M) - 3 * m * cos_theta**2)
-                ddtheta = (
-                    -3 * (m * l) * (dtheta**2) * sin_theta * cos_theta
-                    + 6 * (m + M) * g * sin_theta
-                    + 6 * (F - mu_f * dx) * cos_theta
-                ) / (+4 * l * (m + M) - 3 * (m * l) * cos_theta**2)
+            return np.array([dx, dtheta, ddx, ddtheta])
 
-                return np.array([dx, dtheta, ddx, ddtheta])
+        def scipy_step(f, s, a, dt):
+            t_span = (0, dt)
+            fun = lambda _, y: np.hstack(
+                (f(s=y[:4], a=y[4], cartpole_params=cartpole_params), 0.0)
+            )
+            sol = solve_ivp(fun, t_span, np.hstack((s, a)), method="RK45")
+            return sol.y[:4, -1]
 
-            def scipy_step(f, s, a, dt):
-                t_span = (0, dt)
-                fun = lambda _, y: np.hstack(
-                    (f(s=y[:4], a=y[4], cartpole_params=cartpole_params), 0.0)
-                )
-                sol = solve_ivp(fun, t_span, np.hstack((s, a)), method="RK45")
-                return sol.y[:4, -1]
-
-            self.integrator = lambda s, a: scipy_step(f_explicit, s, a, self.dt)
+        self.integrator = lambda s, a: scipy_step(f_explicit, s, a, self.dt)
 
         # state and action bounds
         obs_ub = np.array(
@@ -176,6 +166,7 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
         self.dim2nondim_a = lambda a: self.Ma_inv @ a if dimensionless else a
         self.nondim2dim_a = lambda a: self.Ma @ a if dimensionless else a
 
+
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """Execute the dynamics of the pendulum on cart."""
         if self.reset_needed:
@@ -186,10 +177,7 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
             action = self.nondim2dim_a(action)
 
         # simulate one time step
-        if self.use_acados_integrator:
-            self.s = self.integrator.simulate(x=self.s, u=action)
-        else:
-            self.s = self.integrator(s=self.s, a=action)
+        self.s = self.integrator(s=self.s, a=action)
         self.s_trajectory.append(self.s)  # type: ignore
         self.t += self.dt
 
@@ -230,6 +218,7 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
 
         return obs, r, term, trunc, info
 
+
     def reset(
         self, *, seed: int | None = None, options: dict | None = None
     ) -> tuple[np.ndarray, dict]:  # type: ignore
@@ -249,27 +238,11 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
         obs = self.dim2nondim_s(self.s)
         return obs, {}
 
+
     def init_state(self) -> np.ndarray:
         """The pendulum is hanging down at the start."""
         return np.array([0.0, np.pi, 0.0, 0.0])
 
-    def include_this_state_trajectory_to_rendering(self, state_trajectory: np.ndarray):
-        """Meant for setting a state trajectory for rendering.
-        If a state trajectory is not set before the next call of render,
-        the rendering will not render a state trajectory.
-
-        NOTE: The record_video wrapper of gymnasium will call render() AFTER every step.
-        This means if you use the wrapper,
-        make a step,
-        calculate action and state trajectory from the observations,
-        and input the state trajectory with this function before taking the next step,
-        the picture being rendered after this next step will be showing the trajectory planned BEFORE DOING the step.
-        """
-        self.pos_trajectory = []
-        self.pole_end_trajectory = []
-        for s in state_trajectory:
-            self.pos_trajectory.append(s[0])
-            self.pole_end_trajectory.append(self.calc_pole_end(s[0], s[1], self.length))
 
     def calc_pole_end(
         self, x_coord: float, theta: float, length: float
@@ -278,6 +251,7 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
         pole_x = x_coord - length * np.sin(theta)
         pole_y = length * np.cos(theta)
         return pole_x, pole_y
+
 
     def render(self):
         import pygame
@@ -426,29 +400,43 @@ class CartpoleSwingupEnvDimensionless(gym.Env):
 
 
 if __name__ == "__main__":
+    # # compare the dimensionless version of default and similar envs
     from utils import get_similar_cartpole_params
-    # from leap_c.examples.cartpole_dimensionless.utils import acados_cleanup
-    # acados_cleanup()
     dimensionless = True
+    render_mode = None
 
     # create envs for the default and similar parameters
     params_ref = get_default_cartpole_params()
-    env_ref = CartpoleSwingupEnvDimensionless(
+    env_ref = CartpoleEnvDimensionless(
         cartpole_params=params_ref,
         dimensionless=dimensionless,
-        mpc_cartpole_params=params_ref
+        mpc_cartpole_params=params_ref,
+        render_mode=render_mode
     )
 
     pole_length = 5.0  # [m]
     params_sim = get_similar_cartpole_params(
         reference_params=params_ref, pole_length=pole_length
     )
-    env_sim = CartpoleSwingupEnvDimensionless(
+    env_sim = CartpoleEnvDimensionless(
         cartpole_params=params_sim,
         dimensionless=dimensionless,
-        mpc_cartpole_params=params_sim
+        mpc_cartpole_params=params_sim,
+        render_mode=render_mode
     )
-    # env_sim = CartpoleSwingupEnvDimensionless(cartpole_params=params_ref, use_acados_integrator=True)
+
+    # # compare the dimensional version with the original leap-c cartpole env (match the simulation models first!)
+    # from leap_c.examples.cartpole.env import CartPoleEnv
+    # from config import get_default_cartpole_params
+    # from env import CartpoleEnvDimensionless
+    # env_ref = CartPoleEnv()
+    # params = get_default_cartpole_params()
+    # env_sim = CartpoleEnvDimensionless(
+    #     cartpole_params=params,
+    #     mpc_cartpole_params=params,
+    #     dimensionless=False,
+    #     render_mode=None,
+    # )
 
     assert env_ref.action_space == env_sim.action_space
     assert env_ref.observation_space == env_sim.observation_space

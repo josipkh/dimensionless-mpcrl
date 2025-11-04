@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 import numpy as np
+import gymnasium as gym
+from leap_c.ocp.acados.parameters import AcadosParameter
+
 
 @dataclass(kw_only=True)
 class CartPoleParams:
@@ -11,31 +14,21 @@ class CartPoleParams:
     mu_f: np.ndarray      # friction coefficient [kg/s]
 
     # Cost matrix factorization parameters, W = L @ L.T
-    L11: np.ndarray
-    L22: np.ndarray
-    L33: np.ndarray
-    L44: np.ndarray
-    L55: np.ndarray
-    Lloweroffdiag: np.ndarray
-
-    # Linear cost parameters (for EXTERNAL cost)
-    c1: np.ndarray        # position linear cost
-    c2: np.ndarray        # theta linear cost
-    c3: np.ndarray        # v linear cost
-    c4: np.ndarray        # thetadot linear cost
-    c5: np.ndarray        # u linear cost
+    q_diag_sqrt: np.ndarray     # stage cost, state residuals
+    r_diag_sqrt: np.ndarray     # stage cost, input residuals
 
     # Reference parameters (for NONLINEAR_LS cost)
-    xref1: np.ndarray     # reference position
-    xref2: np.ndarray     # reference theta
-    xref3: np.ndarray     # reference v
-    xref4: np.ndarray     # reference thetadot
+    xref0: np.ndarray     # reference position
+    xref1: np.ndarray     # reference theta
+    xref2: np.ndarray     # reference v
+    xref3: np.ndarray     # reference thetadot
     uref: np.ndarray      # reference u
 
     # Controller parameters
     Fmax: np.ndarray      # maximum force applied to the cart [N]
     dt: np.ndarray        # time step [s]
     gamma: np.ndarray     # discount factor for the cost function
+    N: np.ndarray         # prediction horizon (number of steps)
 
 
 def get_default_cartpole_params() -> CartPoleParams:
@@ -47,26 +40,67 @@ def get_default_cartpole_params() -> CartPoleParams:
         l=np.array([0.8]),
         mu_f=np.array([1.0]),
 
-        L11=np.array([np.sqrt(2e3)]),
-        L22=np.array([np.sqrt(2e3)]),
-        L33=np.array([np.sqrt(1e-2)]),
-        L44=np.array([np.sqrt(1e-2)]),
-        L55=np.array([np.sqrt(2e-1)]),
-        Lloweroffdiag=np.array([0.0] * (4 + 3 + 2 + 1)),
+        q_diag_sqrt=np.sqrt(np.array([2e3, 2e3, 1e-2, 1e-2])),
+        r_diag_sqrt=np.sqrt(np.array([2e-1])),
 
-        c1=np.array([0.0]),
-        c2=np.array([0.0]),
-        c3=np.array([0.0]),
-        c4=np.array([0.0]),
-        c5=np.array([0.0]),
-
+        xref0=np.array([0.0]),
         xref1=np.array([0.0]),
         xref2=np.array([0.0]),
         xref3=np.array([0.0]),
-        xref4=np.array([0.0]),
         uref=np.array([0.0]),
 
         Fmax=np.array([80.0]),
         dt=np.array([0.05]),
         gamma=np.array([1.0]),
+        N=np.array([5]),
     )
+
+
+def create_acados_params(cartpole_params: CartPoleParams) -> list[AcadosParameter]:
+    return [
+        # Cost matrix factorization parameters
+        AcadosParameter(
+            "q_diag_sqrt", default=cartpole_params.q_diag_sqrt
+        ),  # cost weights of state residuals
+        AcadosParameter(
+            "r_diag_sqrt", default=cartpole_params.r_diag_sqrt
+        ),  # cost weights of control input residuals
+        # Reference parameters
+        AcadosParameter(
+            "xref0",
+            default=cartpole_params.xref0,
+            interface="non-learnable",
+        ),  # reference position
+        AcadosParameter(
+            "xref1",
+            default=cartpole_params.xref1,
+            space=gym.spaces.Box(
+                low=np.array([-2.0 * np.pi]),
+                high=np.array([2.0 * np.pi]),
+                dtype=np.float64,
+            ),
+            interface="learnable",
+        ),  # reference theta
+        AcadosParameter(
+            "xref2",
+            default=cartpole_params.xref2,
+            interface="non-learnable",
+        ),  # reference v
+        AcadosParameter(
+            "xref3",
+            default=cartpole_params.xref3,
+            interface="non-learnable",
+        ),  # reference thetadot
+        AcadosParameter(
+            "uref",
+            default=cartpole_params.uref,
+            interface="non-learnable",
+        ),  # reference u
+    ]
+
+
+if __name__ == "__main__":
+    params = get_default_cartpole_params()
+    acados_params = create_acados_params(params)
+    for p in acados_params:
+        print(p.name, p.default)

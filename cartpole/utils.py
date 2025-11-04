@@ -63,11 +63,8 @@ def get_similar_cartpole_params(
     M = Mu @ np.linalg.inv(mu)
     r_diag = (M.T @ R @ M).diagonal()
 
-    for k in range(5):
-        new_params.__setattr__(
-            f"L{k + 1}{k + 1}",
-            np.array([np.sqrt(q_diag[k] if k < 4 else r_diag[k - 4])]),
-        )
+    new_params.q_diag_sqrt = np.sqrt(q_diag)
+    new_params.r_diag_sqrt = np.sqrt(r_diag)
 
     # check the matrices
     q, r = get_cost_matrices(new_params)
@@ -80,25 +77,15 @@ def get_similar_cartpole_params(
     # match the sampling time
     new_params.dt = reference_params.dt * np.sqrt(new_params.l / reference_params.l)
 
-    # TODO: match the discount factor (through the continuous discount rate r = -log(gamma)/dt)
-    new_params.gamma = np.power(
-        reference_params.gamma, new_params.dt / reference_params.dt
-    )
+    # the discount factor (already dimensionless) stays the same
 
     return new_params
 
 
 def get_cost_matrices(cartpole_params: CartPoleParams) -> tuple[np.ndarray, np.ndarray]:
     """Returns the cost matrices Q and R for the given cartpole system."""
-    Q = np.diag(
-        [
-            cartpole_params.L11.item() ** 2,
-            cartpole_params.L22.item() ** 2,
-            cartpole_params.L33.item() ** 2,
-            cartpole_params.L44.item() ** 2,
-        ]
-    )
-    R = np.diag([cartpole_params.L55.item() ** 2])
+    Q = np.diag(cartpole_params.q_diag_sqrt**2)
+    R = np.diag(cartpole_params.r_diag_sqrt**2)
     return Q, R
 
 
@@ -229,15 +216,26 @@ def plot_results(main_folder, plot_std=False):
 if __name__ == "__main__":
     from config import get_default_cartpole_params
 
-    params = get_default_cartpole_params()
-    Mx, Mu, Mt = get_transformation_matrices(params)
-    similar_params = get_similar_cartpole_params(
-        reference_params=params, pole_length=0.1
+    params_ref = get_default_cartpole_params()
+    Mx, Mu, Mt = get_transformation_matrices(params_ref)
+    params_sim = get_similar_cartpole_params(
+        reference_params=params_ref , pole_length=0.1
     )
 
     # check pi groups
-    pi_1_ref, pi_2_ref = get_pi_groups(params)
-    pi_1_sim, pi_2_sim = get_pi_groups(similar_params)
+    pi_1_ref, pi_2_ref = get_pi_groups(params_ref)
+    pi_1_sim, pi_2_sim = get_pi_groups(params_sim)
     assert np.allclose(pi_1_ref, pi_1_sim), "Pi-group 1 mismatch"
     assert np.allclose(pi_2_ref, pi_2_sim), "Pi-group 2 mismatch"
+
+    # check the cost matrices
+    Q, R = get_cost_matrices(params_ref)
+    q, r = get_cost_matrices(params_sim)
+    Mx, Mu, Mt = get_transformation_matrices(params_ref)
+    mx, mu, mt = get_transformation_matrices(params_sim)
+    assert np.allclose(Mx @ Q @ Mx, mx @ q @ mx)
+    assert np.allclose(Mu @ R @ Mu, mu @ r @ mu)
+
+    # check the sampling time
+    assert np.allclose(params_ref.dt / Mt, params_sim.dt / mt)
     print("ok")
