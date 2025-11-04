@@ -2,13 +2,12 @@ import casadi as ca
 import numpy as np
 import scipy.linalg
 from acados_template import AcadosOcp
-from config import CartPoleParams, create_acados_params
-from utils import get_transformation_matrices
+from cartpole_dimensionless.config import CartPoleParams, create_acados_params
+from cartpole_dimensionless.utils import get_transformation_matrices
 from leap_c.ocp.acados.controller import AcadosController
 from leap_c.ocp.acados.parameters import AcadosParameterManager
 from leap_c.ocp.acados.torch import AcadosDiffMpcTorch
-from model import export_cartpole_model, export_dimensionless_cartpole_model
-import os
+from cartpole_dimensionless.model import export_cartpole_model, export_dimensionless_cartpole_model
 from leap_c.examples.utils.casadi import integrate_erk4
 
 
@@ -150,7 +149,7 @@ def export_parametric_ocp(
 
 if __name__ == "__main__":
     """Compare the dimensional OCP with the reference implementation from leap-c."""
-    from config import get_default_cartpole_params, create_acados_params
+    from cartpole_dimensionless.config import get_default_cartpole_params, create_acados_params
     from leap_c.examples.cartpole.acados_ocp import export_parametric_ocp as export_ref
     from leap_c.examples.cartpole.acados_ocp import create_cartpole_params
     from leap_c.ocp.acados.torch import AcadosDiffMpcTorch

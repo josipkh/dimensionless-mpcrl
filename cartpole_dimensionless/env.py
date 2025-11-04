@@ -1,7 +1,7 @@
 import gymnasium as gym
 import numpy as np
-from config import CartPoleParams, get_default_cartpole_params
-from utils import get_transformation_matrices
+from cartpole_dimensionless.config import CartPoleParams, get_default_cartpole_params
+from cartpole_dimensionless.utils import get_transformation_matrices
 from scipy.integrate import solve_ivp
 
 

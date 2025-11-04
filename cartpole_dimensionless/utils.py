@@ -1,6 +1,6 @@
 import numpy as np
 from copy import deepcopy
-from config import CartPoleParams
+from cartpole_dimensionless.config import CartPoleParams
 import os
 import shutil
 import pandas as pd

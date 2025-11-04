@@ -11,8 +11,8 @@ from leap_c.run import init_run
 from leap_c.torch.rl.buffer import ReplayBuffer
 from leap_c.trainer import Trainer, TrainerConfig
 
-from env import CartpoleEnvDimensionless
-from mpc import CartpoleControllerDimensionless
+from cartpole_dimensionless.env import CartpoleEnvDimensionless
+from cartpole_dimensionless.controller import CartpoleControllerDimensionless
 
 
 class ControllerTrainer(Trainer):
@@ -127,7 +127,7 @@ def run_controller(
 
 
 if __name__ == "__main__":
-    from config import get_default_cartpole_params
+    from cartpole_dimensionless.config import get_default_cartpole_params
     # from utils import get_similar_cartpole_params
 
     env_params = get_default_cartpole_params()
