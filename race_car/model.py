@@ -147,13 +147,13 @@ def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> Acad
     acados_sim.solver_options.integrator_type = "ERK"
     acados_sim.solver_options.num_stages = 4
     acados_sim.solver_options.num_steps = 1
-    acados_sim.code_export_directory = os.path.join("codegen", f"sim_{car_params.l.item():.3g}".replace(".", "_"))  # prevent overwriting
+    acados_sim.code_export_directory = os.path.join("codegen", "race_car", f"sim_{car_params.l.item():.3g}".replace(".", "_"))  # prevent overwriting
     print("Setting up acados integrator...")
 
     acados_sim_solver = AcadosSimSolver(
         acados_sim=acados_sim, 
         verbose=False,
-        json_file=os.path.join("json", f"sim_{car_params.l.item():.3g}".replace(".", "_") + ".json")  # prevent overwriting
+        json_file=os.path.join("json", "race_car", f"sim_{car_params.l.item():.3g}".replace(".", "_") + ".json")  # prevent overwriting
     )
 
     return acados_sim_solver
@@ -170,13 +170,13 @@ def export_acados_integrator_ocp(car_params: CarParams, dimensionless: bool) -> 
     acados_sim.solver_options.integrator_type = "ERK"
     acados_sim.solver_options.num_stages = 4
     acados_sim.solver_options.num_steps = 1
-    acados_sim.code_export_directory = os.path.join("codegen", f"sim_ocp_{car_params.l.item():.3g}".replace(".", "_"))  # prevent overwriting
+    acados_sim.code_export_directory = os.path.join("codegen", "race_car", f"sim_ocp_{car_params.l.item():.3g}".replace(".", "_"))  # prevent overwriting
     print("Setting up acados integrator...")
 
     acados_sim_solver = AcadosSimSolver(
         acados_sim=acados_sim, 
         verbose=False,
-        json_file=os.path.join("json", f"sim_ocp_{car_params.l.item():.3g}".replace(".", "_") + ".json")  # prevent overwriting
+        json_file=os.path.join("json", "race_car", f"sim_ocp_{car_params.l.item():.3g}".replace(".", "_") + ".json")  # prevent overwriting
     )
 
     return acados_sim_solver

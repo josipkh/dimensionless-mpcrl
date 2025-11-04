@@ -121,7 +121,7 @@ def export_ocp(car_params: CarParams, dimensionless: bool) -> AcadosOcp:
     # ocp.solver_options.nlp_solver_ext_qp_res = 1  # print out QP residuals too
 
     # specific codegen folder to prevent overwriting
-    ocp.code_export_directory = os.path.join("codegen", f"ocp_{car_params.l.item():.3g}".replace(".", "_"))
+    ocp.code_export_directory = os.path.join("codegen", "race_car", f"ocp_{car_params.l.item():.3g}".replace(".", "_"))
 
     if dimensionless:
         ocp = nondimensionalize_ocp(ocp, car_params)
@@ -197,7 +197,8 @@ def export_acados_ocp_solver(car_params: CarParams, dimensionless: bool) -> Acad
         acados_ocp=acados_ocp, 
         verbose=False,
         json_file=os.path.join(
-            "json", 
+            "json",
+            "race_car", 
             f"ocp_{car_params.l.item():.3g}".replace(".", "_")  # prevent overwriting
             + ("_dimensionless" if dimensionless else "")
             + ".json")
