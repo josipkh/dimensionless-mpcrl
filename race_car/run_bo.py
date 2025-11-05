@@ -110,7 +110,7 @@ if __name__ == "__main__":
             skip_init = True  # optimize without any priors
 
     # fix the sampler seed for reproducibility
-    sampler = optuna.samplers.TPESampler(seed=0)
+    sampler = optuna.samplers.GPSampler(seed=0)
     study = optuna.create_study(sampler=sampler)
 
     # set the first Optuna trial to use the specified parameters
