@@ -83,9 +83,6 @@ if __name__ == "__main__":
     dimensionless = False
     show_plots = False
 
-    # run a classic closed-loop test
-    # test_closed_loop(car_params, mpc_car_params, dimensionless, show_plots)
-
     # define the initial guess for the parameters (optional)
     init_mode = None  # "race", "track", "best" or None
     skip_init = False
@@ -109,7 +106,7 @@ if __name__ == "__main__":
         case None | "race":
             skip_init = True  # optimize without any priors
 
-    # fix the sampler seed for reproducibility
+    # use a GP sampler, with fixed seed for reproducibility
     sampler = optuna.samplers.GPSampler(seed=0)
     study = optuna.create_study(sampler=sampler)
 

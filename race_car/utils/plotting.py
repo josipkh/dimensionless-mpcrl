@@ -132,6 +132,7 @@ def plot_results_track(state_log: np.ndarray, car_params: CarParams, total_time:
     xmin = np.min(Xref) - 5*car_params.l.item()
     xmax = np.max(Xref) + 5*car_params.l.item()
     plt.figure()
+    plt.rcParams['pdf.fonttype'] = 42  # Ensure fonts are embedded properly in PDF
     plt.ylim(bottom=ymin,top=ymax)
     plt.xlim(left=xmin,right=xmax)
     plt.ylabel('$y$ [m]')
