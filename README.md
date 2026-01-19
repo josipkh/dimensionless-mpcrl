@@ -10,8 +10,10 @@ NOTE: make sure you use the version referenced in `external/leap-c`.
 The race car example is implemented using [`acados`](https://docs.acados.org/) and Optuna (v.4.5.0), which can be installed using the instructions [here](https://docs.acados.org/python_interface/index.html#installation), followed by:
 ```bash
 pip install optuna==4.5.0
-
 ```
+
+NOTE: the example was tested with `acados` version referenced in `external/leap-c/external/acados`.
+
 There might be some additional minor dependencies required to run the examples, but these should be straightforward.
 
 ### Funding
