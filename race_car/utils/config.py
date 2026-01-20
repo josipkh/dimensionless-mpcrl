@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, asdict
 import numpy as np
-from leap_c.ocp.acados.parameters import AcadosParameter
 import gymnasium as gym
 
 @dataclass(kw_only=True)
@@ -116,52 +115,7 @@ def get_default_car_params() -> CarParams:
     )
 
 
-def create_acados_params(car_params: CarParams) -> tuple[AcadosParameter, ...]:
-    """Create a list of parameters to be handled within acados"""   
-    # add the learnable cost weights and non-learnable progress reference
-    # TODO: set the correct cost weight limits
-    cost_min = 0.0      # lower limit on the individual weights
-    cost_max = 100.0    # upper limit on the individual weights
-    params = [
-        AcadosParameter(
-            name="q_diag_sqrt",
-            default=car_params.q_diag_sqrt,
-            space=gym.spaces.Box(
-                low=np.sqrt(cost_min * np.ones_like(car_params.q_diag_sqrt)),
-                high=np.sqrt(cost_max * np.ones_like(car_params.q_diag_sqrt)),
-                dtype=np.float64),
-            interface="learnable",
-        ),
-        AcadosParameter(
-            name="r_diag_sqrt",
-            default=car_params.r_diag_sqrt,
-            space=gym.spaces.Box(
-                low=np.sqrt(cost_min * np.ones_like(car_params.r_diag_sqrt)),
-                high=np.sqrt(cost_max * np.ones_like(car_params.r_diag_sqrt)),
-                dtype=np.float64),
-            interface="learnable",
-        ),
-        AcadosParameter(
-            name="qe_diag_sqrt",
-            default=car_params.qe_diag_sqrt,
-            space=gym.spaces.Box(
-                low=np.sqrt(cost_min * np.ones_like(car_params.qe_diag_sqrt)),
-                high=np.sqrt(cost_max * np.ones_like(car_params.qe_diag_sqrt)),
-                dtype=np.float64),
-            interface="learnable",
-        ),
-        AcadosParameter(
-            "sref",
-            default=np.array([0.0]),
-            interface="non-learnable",
-            end_stages=list(range(car_params.N.item() + 1)),
-        )
-    ]
-    return tuple(params)
-
-
 if __name__ == "__main__":
     from pprint import pprint
     car_params = get_default_car_params()
     pprint(car_params)
-    create_acados_params(car_params=car_params)

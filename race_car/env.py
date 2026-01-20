@@ -9,8 +9,7 @@ from race_car.model import export_acados_integrator
 
 
 class RaceCarEnv(gym.Env):
-    """TODO: write me."""
-
+    
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
     def __init__(
