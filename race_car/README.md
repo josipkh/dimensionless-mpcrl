@@ -1,3 +1,6 @@
 This example is based on the publication: *NMPC for Racing Using a Singularity-Free Path-Parametric Model with Obstacle Avoidance - Daniel Kloeser, Tobias Schoels, Tommaso Sartor, Andrea Zanelli, Gianluca Frison, Moritz Diehl. Proceedings of the 21th IFAC World Congress, Berlin, Germany - July 2020* ([link](https://www.sciencedirect.com/science/article/pii/S2405896320317845)).
 
-The goal is to drive around the track in minimum time, with a progress-maximizing OCP reformulation in the MPC. To reproduce the results in our paper, one should first run the `run_bo.py` script, followed by `test_bo.py`. The `run_bo_combined.py` and `test_bo_combined.py` scripts can be used to run BO using trials from both cars (small and large). Note that you might need to modify some paths to the generated files in between the two steps.
+The goal is to drive around the track in minimum time, with a progress-maximizing OCP reformulation in the MPC. To reproduce the results in our paper, one should first run the `run_bo.py` script, followed by `test_bo.py`. The `run_bo_combined.py` and `test_bo_combined.py` scripts can be used to run BO using trials from both cars (small and large).
+
+Note that you might need to modify some paths to the generated files in between the two steps.
+Running the example should take around 30 minutes on a standard laptop.
