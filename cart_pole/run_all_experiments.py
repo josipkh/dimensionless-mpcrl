@@ -5,12 +5,13 @@ from pathlib import Path
 from leap_c.run import main
 from leap_c.torch.rl.sac_fop import SacFopBaseConfig
 from task import CartpoleSwingupDimensionless
-from config import get_default_cartpole_params
-from utils import get_similar_cartpole_params, plot_results
+from cart_pole.utils.config import get_default_cartpole_params
+from cart_pole.utils.scaling import get_similar_cartpole_params
+from cart_pole.utils.plotting import plot_results
 
 # high-level experiment settings
 keep_output = False  # if False, the output is saved in /tmp/
-dimensionless = True  # set to False for the original cartpole task
+dimensionless = True  # whether to use the dimensionless formulation
 task_name = "cartpole_swingup" + ("_dimensionless" if dimensionless else "")
 trainer_name = "sac_fop"
 device = "cpu"
@@ -48,8 +49,8 @@ run_names = [
 def get_run_config(run_name, seed):
     cfg = SacFopBaseConfig()
     cfg.seed = seed
-    cfg.val.interval = 10_000
-    cfg.train.steps = 50_000
+    cfg.val.interval = 3_000
+    cfg.train.steps = 30_000
     cfg.val.num_render_rollouts = 1
     cfg.log.wandb_logger = True
     cfg.log.csv_logger = True

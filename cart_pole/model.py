@@ -1,7 +1,7 @@
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
 import casadi as ca
 import numpy as np
-from config import CartPoleParams
+from cart_pole.utils.config import CartPoleParams
 
 
 def export_cartpole_model(cartpole_params: CartPoleParams) -> AcadosModel:
@@ -207,8 +207,8 @@ def simulate_dimensionless_version(
 
 
 if __name__ == "__main__":
-    from config import get_default_cartpole_params
-    from utils import get_similar_cartpole_params
+    from cart_pole.utils.config import get_default_cartpole_params
+    from cart_pole.utils.scaling import get_similar_cartpole_params
 
     params_ref = get_default_cartpole_params()
     pole_length = 5.0  # [m] 0.1

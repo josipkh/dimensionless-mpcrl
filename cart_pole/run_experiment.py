@@ -3,21 +3,17 @@ from pathlib import Path
 from leap_c.run import main
 from leap_c.torch.rl.sac_fop import SacFopBaseConfig
 from task import CartpoleSwingupDimensionless
-from config import get_default_cartpole_params
-from utils import get_similar_cartpole_params
+from cart_pole.utils.config import get_default_cartpole_params
 
 keep_output = False  # if False, the output is saved in /tmp/
-dimensionless = True
+dimensionless = True  # whether to use the dimensionless formulation
 
 trainer_name = "sac_fop"
 task_name = "cartpole_swingup" + ("_dimensionless" if dimensionless else "")
 device = "cpu"
 task = CartpoleSwingupDimensionless(
     mpc_params=get_default_cartpole_params(),
-    env_params=get_similar_cartpole_params(
-        reference_params=get_default_cartpole_params(),
-        pole_length=5.0,
-    ),
+    env_params=get_default_cartpole_params(),
     dimensionless=dimensionless,
 )
 seed = 0
@@ -34,7 +30,7 @@ cfg.seed = seed
 cfg.val.interval = 10_000
 cfg.train.steps = 50_000
 cfg.val.num_render_rollouts = 1
-cfg.log.wandb_logger = True
+cfg.log.wandb_logger = False
 cfg.log.wandb_init_kwargs = {"name": "test"}
 cfg.log.csv_logger = True
 cfg.sac.entropy_reward_bonus = False  # type: ignore
@@ -45,8 +41,9 @@ cfg.sac.lr_q = 1e-4
 cfg.sac.lr_alpha = 1e-3
 cfg.sac.init_alpha = 0.1
 cfg.sac.gamma = 1.0
+cfg.sac.buffer_size = 10_000
 
-# all settings:
+# all settings (with their default values):
 # cfg.train.steps = 50_000
 # cfg.train.start = 0
 # cfg.val.interval = 10_000

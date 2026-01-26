@@ -1,7 +1,7 @@
 import gymnasium as gym
 import numpy as np
-from cart_pole.config import CartPoleParams, get_default_cartpole_params
-from cart_pole.utils import get_transformation_matrices
+from cart_pole.utils.config import CartPoleParams, get_default_cartpole_params
+from cart_pole.utils.scaling import get_transformation_matrices
 from scipy.integrate import solve_ivp
 
 
@@ -56,7 +56,7 @@ class CartpoleEnvDimensionless(gym.Env):
         cartpole_params: CartPoleParams,
         mpc_cartpole_params: CartPoleParams,
         dimensionless: bool,
-        render_mode: str | None,
+        render_mode: str | None = None,
     ):
         if dimensionless:
             # use parameters from mpc (possibly wrong) instead of env
@@ -401,7 +401,7 @@ class CartpoleEnvDimensionless(gym.Env):
 
 if __name__ == "__main__":
     # # compare the dimensionless version of default and similar envs
-    from utils import get_similar_cartpole_params
+    from cart_pole.utils.scaling import get_similar_cartpole_params
     dimensionless = True
     render_mode = None
 

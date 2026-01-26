@@ -1,11 +1,6 @@
 import numpy as np
 from copy import deepcopy
-from cart_pole.config import CartPoleParams
-import os
-import shutil
-import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
+from cart_pole.utils.config import CartPoleParams
 
 
 def get_transformation_matrices(
@@ -63,8 +58,12 @@ def get_similar_cartpole_params(
     M = Mu @ np.linalg.inv(mu)
     r_diag = (M.T @ R @ M).diagonal()
 
-    new_params.q_diag_sqrt = np.sqrt(q_diag)
-    new_params.r_diag_sqrt = np.sqrt(r_diag)
+    for k in range(5):
+        new_params.__setattr__(
+            f"L{k + 1}{k + 1}",
+            np.array([np.sqrt(q_diag[k] if k < 4 else r_diag[k - 4])]),
+        )
+
 
     # check the matrices
     q, r = get_cost_matrices(new_params)
@@ -84,8 +83,15 @@ def get_similar_cartpole_params(
 
 def get_cost_matrices(cartpole_params: CartPoleParams) -> tuple[np.ndarray, np.ndarray]:
     """Returns the cost matrices Q and R for the given cartpole system."""
-    Q = np.diag(cartpole_params.q_diag_sqrt**2)
-    R = np.diag(cartpole_params.r_diag_sqrt**2)
+    Q = np.diag(
+        [
+            cartpole_params.L11.item() ** 2,
+            cartpole_params.L22.item() ** 2,
+            cartpole_params.L33.item() ** 2,
+            cartpole_params.L44.item() ** 2,
+        ]
+    )
+    R = np.diag([cartpole_params.L55.item() ** 2])
     return Q, R
 
 
@@ -103,118 +109,8 @@ def get_pi_groups(cartpole_params: CartPoleParams) -> tuple[float, float]:
     return pi_1, pi_2
 
 
-def acados_cleanup(path="."):
-    files_to_delete = ["acados_sim.json", "acados_ocp.json"]
-    folder_to_delete = "c_generated_code"
-
-    items_to_delete = []
-
-    # Check files
-    for filename in files_to_delete:
-        file_path = os.path.join(path, filename)
-        if os.path.isfile(file_path):
-            items_to_delete.append(file_path)
-
-    # Check folder
-    folder_path = os.path.join(path, folder_to_delete)
-    if os.path.isdir(folder_path):
-        items_to_delete.append(folder_path)
-
-    # If nothing to delete
-    if not items_to_delete:
-        print("No matching files or folders found to delete.")
-        return
-
-    # List items to be deleted
-    print("The following items will be deleted:")
-    for item in items_to_delete:
-        print(f"  - {item}")
-
-    # Ask for confirmation
-    confirm = input("Do you want to proceed? (y/n): ").strip().lower()
-    if confirm != "y":
-        print("Aborted.")
-        return
-
-    # Perform deletion
-    for item in items_to_delete:
-        try:
-            if os.path.isdir(item):
-                shutil.rmtree(item)
-                print(f"Deleted folder: {item}")
-            else:
-                os.remove(item)
-                print(f"Deleted file: {item}")
-        except Exception as e:
-            print(f"Error deleting {item}: {e}")
-
-
-def plot_results(main_folder, plot_std=False):
-    """Plots the experiment results averaged over the seeds."""
-
-    experiments = ['default', 'small', 'large', 'transfer_small', 'transfer_large']
-    seeds = ['0', '1', '2', '3', '4']
-    metric = 'score'
-    output_file = os.path.join(main_folder, 'results.pdf')
-
-    # Collect data
-    experiment_results = {}
-
-    for exp in experiments:
-        seed_dfs = []
-        for seed in seeds:
-            file_path = os.path.join(main_folder, exp, seed, 'val_log.csv')
-            if os.path.exists(file_path):
-                df = pd.read_csv(file_path, index_col=0)
-                # keep only the scores created after transfer
-                if df.shape[0] > len(seeds) + 1:
-                    df = df.tail(len(seeds) + 1)
-                seed_dfs.append(df)
-            else:
-                print(f"Warning: Missing file {file_path}")
-        if seed_dfs:
-            # Stack into 3D array for mean/std
-            combined = pd.concat(seed_dfs, axis=0, keys=range(len(seed_dfs)))
-            mean_df = combined.groupby(level=1).mean()
-            std_df = combined.groupby(level=1).std()
-            experiment_results[exp] = {'mean': mean_df, 'std': std_df}
-        else:
-            print(f"Warning: No valid seed logs found for {exp}")
-
-    # Plotting
-    try:
-        plt.figure(figsize=(10, 6))
-    except Exception as e:
-    # switch to a headless backend (https://stackoverflow.com/questions/4706451/how-to-save-a-figure-remotely-with-pylab)
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(10, 6))
-
-    for exp_name, data in experiment_results.items():
-        if metric in data['mean'].columns:
-            steps = data['mean'].index
-            mean_values = data['mean'][metric]
-            plt.plot(steps, mean_values, label=exp_name)
-            if plot_std:
-                std_values = data['std'][metric]
-                plt.fill_between(steps, mean_values - std_values, mean_values + std_values, alpha=0.2)
-
-    # plt.title(f'Metric: {metric}')
-    plt.xlabel("Number of samples")
-    plt.ylabel("Validation score")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-
-    # Save to PDF
-    with PdfPages(output_file) as pdf:
-        pdf.savefig()
-        print(f"Saved plot to {output_file}")
-
-
 if __name__ == "__main__":
-    from config import get_default_cartpole_params
+    from cart_pole.utils.config import get_default_cartpole_params
 
     params_ref = get_default_cartpole_params()
     Mx, Mu, Mt = get_transformation_matrices(params_ref)
