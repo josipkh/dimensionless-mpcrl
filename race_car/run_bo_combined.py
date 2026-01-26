@@ -1,6 +1,6 @@
 """This script runs the Bayesian optimization by combining trials from the small and large cars."""
 import optuna
-from race_car.acados_ocp import test_closed_loop
+from race_car.mpc import test_closed_loop
 import numpy as np
 import csv
 import os

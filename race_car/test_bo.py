@@ -2,8 +2,9 @@
 import pandas as pd
 from race_car.utils.config import get_default_car_params
 from race_car.utils.scaling import get_transformation_matrices, get_large_car_params, get_cost_matrices
+from race_car.utils.plotting import plot_bo_results
 import numpy as np
-from race_car.acados_ocp import test_closed_loop
+from race_car.mpc import test_closed_loop
 import matplotlib.pyplot as plt
 
 # load the results file
@@ -49,6 +50,10 @@ test_closed_loop(
 manager = plt.get_current_fig_manager()
 manager.full_screen_toggle()
 plt.savefig("race_car/output/track_large_transfer.pdf", bbox_inches='tight')
+
+# plot also the BO results (in log scale)
+plot_bo_results(input_file=filename, output_file="race_car/output/bo_small_log.pdf")
+
 if plt.get_fignums():
     plt.show(block=False)
     input("Press Enter to continue...")

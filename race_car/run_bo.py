@@ -1,6 +1,6 @@
 """Tune the parameters of the MPC using Bayesian optimization through Optuna."""
 import optuna
-from race_car.acados_ocp import test_closed_loop
+from race_car.mpc import test_closed_loop
 from race_car.utils.config import CarParams
 import numpy as np
 import csv

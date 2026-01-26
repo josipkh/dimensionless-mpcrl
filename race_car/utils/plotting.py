@@ -3,8 +3,11 @@ import numpy as np
 from race_car.utils.config import CarParams, get_default_car_params
 from race_car.utils.track import get_track, frenet2global, global2frenet
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from matplotlib import cm
 import casadi as ca
+import pandas as pd
+from matplotlib.ticker import LogFormatter, ScalarFormatter
 
 
 def plot_track(car_params: CarParams):
@@ -234,6 +237,53 @@ def calculate_acc(x, car_params):
     return alat
 
 
+def plot_bo_results(input_file: str, output_file: str):
+    # Load the CSV
+    df = pd.read_csv(input_file)
+
+    # Extract the 'result' column
+    results = df['result'].values
+
+    # Compute best-so-far (cumulative minimum)
+    best_so_far = np.minimum.accumulate(results)
+
+    # Choose exact Tableau colors
+    blue = mcolors.TABLEAU_COLORS['tab:blue']
+    red = mcolors.TABLEAU_COLORS['tab:red']
+
+    # Plotting
+    plt.figure(figsize=(8, 5))
+    plt.rcParams['pdf.fonttype'] = 42  # Ensure fonts are embedded properly in PDF
+
+    # Line behind scatter points
+    plt.plot(range(1, len(results)+1), best_so_far, color=red, linewidth=2, zorder=1)
+    plt.scatter(range(1, len(results)+1), results, color=blue, s=25, zorder=2)
+
+    # Log scale for y-axis
+    plt.yscale('log')
+
+    # Axis labels with larger font
+    plt.xlabel("Trial", fontsize=14)
+    plt.ylabel("Lap time [s] (log scale)", fontsize=14)
+
+    # Increase tick label size
+    ax = plt.gca()
+    ax.tick_params(axis='both', which='major', labelsize=12)
+    ax.tick_params(axis='both', which='minor', labelsize=10)
+
+    # Grid
+    plt.grid(True, which="both", ls="--", lw=0.5)
+
+    # Force plain numbers on ticks
+    ax.yaxis.set_major_formatter(LogFormatter(base=10, labelOnlyBase=True))
+    ax.yaxis.set_minor_formatter(ScalarFormatter())
+
+    plt.tight_layout()
+
+    # Save as PDF
+    plt.savefig(output_file)
+
+
 if __name__ == "__main__":
     from race_car.utils.scaling import get_large_car_params
 
@@ -261,6 +311,10 @@ if __name__ == "__main__":
     plot_results_track(simX, car_params_sim, total_time=t[-1])
     plot_results_classic(simX, simU, t)
     plot_lat_acc(simX, simU, t, car_params_sim)
+
+    input_file = "/home/josip/dimensionless-mpcrl/race_car/output/bo_log_plot/results.csv"
+    output_file = "/home/josip/dimensionless-mpcrl/race_car/output/bo_log_plot/results_plot.pdf"
+    plot_bo_results(input_file, output_file)
 
     plt.show(block=False)
     if plt.get_fignums():

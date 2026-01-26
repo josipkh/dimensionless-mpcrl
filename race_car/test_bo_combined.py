@@ -1,10 +1,11 @@
 """Test the results of optimizing the dimensionless parameters (on both cars)"""
 import pandas as pd
 from race_car.utils.config import get_default_car_params
-from race_car.utils.scaling import get_transformation_matrices, get_large_car_params, get_cost_matrices
+from race_car.utils.scaling import get_transformation_matrices, get_large_car_params
 import numpy as np
-from race_car.acados_ocp import test_closed_loop
+from race_car.mpc import test_closed_loop
 import matplotlib.pyplot as plt
+from race_car.utils.plotting import plot_bo_results
 
 # load the results file
 filename = "race_car/output/bo_combined.csv"
@@ -33,9 +34,12 @@ for car_size in ["small", "large"]:
 
     # run a closed-loop experiment to verify the transfer
     test_closed_loop(car_params=car_params, mpc_car_params=car_params, dimensionless=True, show_plots=True, stop_on_fail=False)
+    plt.savefig(f"race_car/output/track_bo_combined_{car_size}.pdf")
+
+    # plot also the BO results (in log scale)
+    plot_bo_results(input_file=filename, output_file="race_car/output/bo_combined_log.pdf")
 
     # keep the plots open (if there are any)
-    plt.savefig(f"race_car/output/track_bo_combined_{car_size}.pdf")
     if plt.get_fignums():
         plt.show(block=False)
         input("Press Enter to continue...")
