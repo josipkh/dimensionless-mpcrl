@@ -12,6 +12,7 @@ from cart_pole.utils.plotting import plot_results
 # high-level experiment settings
 keep_output = False  # if False, the output is saved in /tmp/
 dimensionless = True  # whether to use the dimensionless formulation
+n_seeds = 5  # test over this many random seeds
 task_name = "cartpole_swingup" + ("_dimensionless" if dimensionless else "")
 trainer_name = "sac_fop"
 device = "cpu"
@@ -67,7 +68,7 @@ def get_run_config(run_name, seed):
     return cfg
 
 # main loop
-for seed in range(5):
+for seed in range(n_seeds):
     for k in range(5):
         task = task_list[k]
         run_name = run_names[k]

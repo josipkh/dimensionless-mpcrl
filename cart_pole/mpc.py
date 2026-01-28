@@ -102,6 +102,7 @@ def f_expl_expr(model: AcadosModel, dimensionless: bool) -> ca.SX:
     sin_theta = ca.sin(theta)
 
     # (model without friction)
+    # from eq. (11) in https://arxiv.org/pdf/1910.13753
     # denominator = M + m - m * cos_theta * cos_theta
     # ddx = (-m * l * sin_theta * dtheta * dtheta + m * g * cos_theta * sin_theta + F) / denominator
     # ddtheta = (
@@ -111,6 +112,7 @@ def f_expl_expr(model: AcadosModel, dimensionless: bool) -> ca.SX:
     #     ) / (l * denominator)
 
     # (model with friction)
+    # NOTE: positive angle is counterclockwise, differs from the paper https://ieeexplore.ieee.org/document/10178119
     mu_f = p["mu_f"]
     ddx = (
         -2 * (m * l) * (dtheta**2) * sin_theta
@@ -206,18 +208,6 @@ def cost_matrix_casadi(model: AcadosModel) -> ca.SX:
     assign_lower_triangular(L, L_offdiag)
 
     return L @ L.T
-
-
-def cost_matrix_numpy(nominal_params: dict[str, np.ndarray]) -> np.ndarray:
-    L = np.diag([nominal_params[f"L{i}{i}"].item() for i in range(1, 6)])
-    L[np.tril_indices_from(L, -1)] = nominal_params["Lloweroffdiag"]
-    return L @ L.T
-
-
-def yref_numpy(nominal_params: dict[str, np.ndarray]) -> np.ndarray:
-    return np.array(
-        [nominal_params[f"xref{i}"] for i in range(1, 5)] + [nominal_params["uref"]]
-    ).squeeze()
 
 
 def yref_casadi(model: AcadosModel) -> ca.SX:

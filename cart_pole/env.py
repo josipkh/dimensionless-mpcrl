@@ -87,6 +87,7 @@ class CartpoleEnvDimensionless(gym.Env):
             sin_theta = np.sin(theta)
 
             # model without friction
+            # from eq. (11) in https://arxiv.org/pdf/1910.13753
             # denominator = M + m - m * cos_theta * cos_theta
             # ddx = (-m * l * sin_theta * dtheta * dtheta
             #        + m * g * cos_theta * sin_theta
@@ -98,6 +99,7 @@ class CartpoleEnvDimensionless(gym.Env):
             #         ) / (l * denominator)
 
             # model with friction
+            # NOTE: positive angle is counterclockwise, differs from the paper https://ieeexplore.ieee.org/document/10178119
             ddx = (
                 -2 * (m * l) * (dtheta**2) * sin_theta
                 + 3 * m * g * sin_theta * cos_theta
@@ -242,15 +244,6 @@ class CartpoleEnvDimensionless(gym.Env):
     def init_state(self) -> np.ndarray:
         """The pendulum is hanging down at the start."""
         return np.array([0.0, np.pi, 0.0, 0.0])
-
-
-    def calc_pole_end(
-        self, x_coord: float, theta: float, length: float
-    ) -> tuple[float, float]:
-        # NOTE: The minus is necessary because theta is seen as counterclockwise
-        pole_x = x_coord - length * np.sin(theta)
-        pole_y = length * np.cos(theta)
-        return pole_x, pole_y
 
 
     def render(self):
@@ -424,19 +417,6 @@ if __name__ == "__main__":
         mpc_cartpole_params=params_sim,
         render_mode=render_mode
     )
-
-    # # compare the dimensional version with the original leap-c cartpole env (match the simulation models first!)
-    # from leap_c.examples.cartpole.env import CartPoleEnv
-    # from config import get_default_cartpole_params
-    # from env import CartpoleEnvDimensionless
-    # env_ref = CartPoleEnv()
-    # params = get_default_cartpole_params()
-    # env_sim = CartpoleEnvDimensionless(
-    #     cartpole_params=params,
-    #     mpc_cartpole_params=params,
-    #     dimensionless=False,
-    #     render_mode=None,
-    # )
 
     assert env_ref.action_space == env_sim.action_space
     assert env_ref.observation_space == env_sim.observation_space
