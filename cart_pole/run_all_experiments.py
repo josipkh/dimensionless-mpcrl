@@ -13,10 +13,10 @@ from cart_pole.utils.plotting import plot_results
 keep_output = False  # if False, the output is saved in /tmp/
 dimensionless = True  # whether to use the dimensionless formulation
 n_seeds = 5  # test over this many random seeds
-task_name = "cartpole_swingup" + ("_dimensionless" if dimensionless else "")
+task_name = "cartpole_swingup" + ("_dimensionless" if dimensionless else "_dimensional")
 trainer_name = "sac_fop"
 device = "cpu"
-output_root = "output" if keep_output else "/tmp"
+output_root = "cart_pole/output" if keep_output else "/tmp"
 time_str = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 main_output_path = Path(f"{output_root}/{task_name}/{time_str}")
 
@@ -53,7 +53,7 @@ def get_run_config(run_name, seed):
     cfg.val.interval = 3_000
     cfg.train.steps = 30_000
     cfg.val.num_render_rollouts = 1
-    cfg.log.wandb_logger = True
+    cfg.log.wandb_logger = False
     cfg.log.csv_logger = True
     cfg.sac.entropy_reward_bonus = False  # type: ignore
     cfg.sac.update_freq = 4
@@ -64,7 +64,7 @@ def get_run_config(run_name, seed):
     cfg.sac.lr_alpha = 1e-3
     cfg.sac.init_alpha = 0.1
     cfg.sac.gamma = 1.0
-    cfg.log.wandb_init_kwargs = {"name": run_name + "-" + str(seed)}
+    cfg.log.wandb_init_kwargs = {"name": ("dimensionless" if dimensionless else "dimensional") + "-" + run_name + "-" + str(seed)}
     return cfg
 
 # main loop

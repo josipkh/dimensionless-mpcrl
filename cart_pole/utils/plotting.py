@@ -8,11 +8,16 @@ from scipy.interpolate import make_interp_spline
 from matplotlib.lines import Line2D
 
 
-def plot_results(main_folder, plot_std=False):
+def plot_results(main_folder, plot_std, plot_seeds):
     """Plots the experiment results averaged over the seeds."""
 
+    # assume the same names as in the run script
     experiments = ['default', 'small', 'large', 'transfer_small', 'transfer_large']
-    seeds = ['0', '1', '2', '3', '4']
+    # detect the number of seeds automatically
+    seeds = sorted([
+        d for d in os.listdir(os.path.join(main_folder, experiments[0]))
+        if d.isdigit()
+    ], key=int)
     metric = 'score'
     output_file = os.path.join(main_folder, 'results.pdf')
 
@@ -26,8 +31,9 @@ def plot_results(main_folder, plot_std=False):
             if os.path.exists(file_path):
                 df = pd.read_csv(file_path, index_col=0)
                 # keep only the scores created after transfer
-                if df.shape[0] > len(seeds) + 1:
-                    df = df.tail(len(seeds) + 1)
+                reset_positions = df.index.to_series().eq(0).to_numpy().nonzero()[0]
+                if len(reset_positions) > 1:
+                    df = df.iloc[reset_positions[1]:]
                 seed_dfs.append(df)
             else:
                 print(f"Warning: Missing file {file_path}")
@@ -36,31 +42,68 @@ def plot_results(main_folder, plot_std=False):
             combined = pd.concat(seed_dfs, axis=0, keys=range(len(seed_dfs)))
             mean_df = combined.groupby(level=1).mean()
             std_df = combined.groupby(level=1).std()
-            experiment_results[exp] = {'mean': mean_df, 'std': std_df}
+            experiment_results[exp] = {
+                'mean': mean_df,
+                'std': std_df,
+                'seeds': seed_dfs  # list of DataFrames for each seed
+            }
         else:
             print(f"Warning: No valid seed logs found for {exp}")
 
+    # Save wide-format CSV: one row per step, one column per experiment (mean), optionally std
+    results_csv_path = os.path.join(main_folder, 'results.csv')
+
+    combined_df = pd.DataFrame()
+
+    for exp_name, data in experiment_results.items():
+        mean_series = data['mean'][metric].rename(exp_name)
+        combined_df = pd.concat([combined_df, mean_series], axis=1)
+
+    if plot_std:
+        for exp_name, data in experiment_results.items():
+            std_series = data['std'][metric].rename(exp_name + "_std")
+            combined_df = pd.concat([combined_df, std_series], axis=1)
+
+    combined_df.index.name = "step"
+    combined_df.to_csv(results_csv_path)
+    print(f"Saved the averaged data to {results_csv_path}")
+
     # Plotting
     try:
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(8, 6))
     except Exception as e:
     # switch to a headless backend (https://stackoverflow.com/questions/4706451/how-to-save-a-figure-remotely-with-pylab)
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(8, 6))
+    
+    color_cycle = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
 
     for exp_name, data in experiment_results.items():
         if metric in data['mean'].columns:
             steps = data['mean'].index
             mean_values = data['mean'][metric]
-            plt.plot(steps, mean_values, label=exp_name)
+            
+            # Get the next color in the cycle
+            color = next(color_cycle)
+            
+            # Plot mean
+            plt.plot(steps, mean_values, label=exp_name, color=color)
+
+            # Plot individual seeds with lower alpha
+            if plot_seeds:
+                for seed_df in data['seeds']:
+                    if metric in seed_df.columns:
+                        plt.plot(seed_df.index, seed_df[metric], color=color, alpha=0.2, linewidth=1)
+
+            # Plot std band
             if plot_std:
                 std_values = data['std'][metric]
-                plt.fill_between(steps, mean_values - std_values, mean_values + std_values, alpha=0.2)
+                plt.fill_between(steps, mean_values - std_values, mean_values + std_values, alpha=0.1, color=color)
 
     # plt.title(f'Metric: {metric}')
+    plt.ylim((0.0, 20.0))
     plt.xlabel("Number of samples")
     plt.ylabel("Validation score")
     plt.legend()
@@ -70,7 +113,130 @@ def plot_results(main_folder, plot_std=False):
     # Save to PDF
     with PdfPages(output_file) as pdf:
         pdf.savefig()
-        print(f"Saved plot to {output_file}")
+        print(f"Saved the classic plot to {output_file}")
+
+    plot_transfer(
+        main_folder=main_folder,
+        output_path=os.path.join(main_folder, "transfer_plot.pdf"),
+        plot_std=plot_std,
+        plot_seeds=plot_seeds
+    )
+
+
+def plot_transfer(main_folder, output_path, plot_std, plot_seeds):
+    csv_path = os.path.join(main_folder, 'results.csv')
+    df = pd.read_csv(csv_path)
+
+    # Determine step interval (assumes constant interval)
+    step_col = df['step']
+    step_interval = step_col.diff().dropna().iloc[0]
+
+    # Get default data
+    default_series = df['default'].dropna()
+    default_steps = step_col.loc[default_series.index]
+    transition_point = default_steps.max()
+
+    # Start figure
+    plt.figure(figsize=(10, 6))
+    color_cycle = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+
+    # Plot default (mean)
+    color_default = next(color_cycle)
+    plt.plot(default_steps, default_series, label='default', color=color_default)
+
+    # Plot std for default
+    if plot_std and 'default_std' in df.columns:
+        default_std = df['default_std'].dropna()
+        std_steps = step_col.loc[default_std.index]
+        plt.fill_between(
+            std_steps,
+            default_series - default_std,
+            default_series + default_std,
+            color=color_default,
+            alpha=0.2,
+        )
+
+    # Plot seeds for default
+    seeds = sorted([
+        d for d in os.listdir(os.path.join(main_folder, 'default'))
+        if d.isdigit()
+    ], key=int)
+    if plot_seeds:
+        for seed in seeds:
+            file_path = os.path.join(main_folder, 'default', seed, 'val_log.csv')
+            if os.path.exists(file_path):
+                seed_df = pd.read_csv(file_path, index_col=0)
+                if 'score' in seed_df.columns:
+                    plt.plot(
+                        seed_df.index,
+                        seed_df['score'],
+                        color=color_default,
+                        alpha=0.3,
+                        linewidth=1
+                    )
+            else:
+                print(f"Warning: Missing file {file_path}")
+
+
+    # Dashed line at transition point
+    plt.axvline(x=transition_point, color='black', linestyle='--', label='transfer start')
+
+    # Plot transfer experiments
+    for transfer_key in ['transfer_small', 'transfer_large']:
+        color = next(color_cycle)
+
+        # Plot mean from results.csv
+        series = df[transfer_key].dropna()
+        steps = step_col.loc[series.index]
+        step_shift = transition_point - steps.min()
+        aligned_steps = steps + step_shift
+        plt.plot(aligned_steps, series, label=transfer_key.removeprefix("transfer_"), color=color)
+
+        # Optional: plot std (if plot_std is True)
+        if plot_std:
+            std_key = transfer_key + "_std"
+            if std_key in df.columns:
+                std_series = df[std_key].dropna()
+                std_steps = step_col.loc[std_series.index]
+                aligned_std_steps = std_steps + step_shift
+                plt.fill_between(
+                    aligned_std_steps,
+                    series - std_series,
+                    series + std_series,
+                    color=color,
+                    alpha=0.2,
+                )
+
+        # Optional: plot individual seeds (if plot_seeds is True)
+        if plot_seeds:
+            for seed in seeds:
+                file_path = os.path.join(main_folder, transfer_key, seed, 'val_log.csv')
+                if os.path.exists(file_path):
+                    seed_df = pd.read_csv(file_path, index_col=0)
+                    if seed_df.shape[0] > 6:  # keep only post-transfer steps
+                        seed_df = seed_df.tail(6)
+                    if 'score' in seed_df.columns:
+                        plt.plot(
+                            seed_df.index + step_shift,  # shift x-axis
+                            seed_df['score'],
+                            color=color,
+                            alpha=0.3,
+                            linewidth=1
+                        )
+                else:
+                    print(f"Warning: Missing file {file_path}")
+
+    # Labels, legend, etc.
+    plt.ylim((0.0, 20.0))
+    plt.xlabel("Number of samples")
+    plt.ylabel("Validation score")
+    plt.legend(loc='upper left')
+    plt.grid(True)
+    plt.tight_layout()
+
+    # Save plot
+    plt.savefig(output_path)
+    print(f"Saved the transfer plot to {output_path}")
 
 
 def smooth_curve(x, y, num_points=200):
@@ -93,7 +259,6 @@ def plot_merged_transfer(
     folder_dimensionless,
     output_path,
     plot_std=True,
-    plot_seeds=False,
     smooth=True,
     smooth_window=5,
 ):
@@ -133,16 +298,6 @@ def plot_merged_transfer(
     for exp_name in experiments:
         color = next(color_cycle)
         color_map[exp_name] = color
-
-        # Clean display names
-        if exp_name == "default":
-            label_pretty = "default"
-        elif exp_name == "transfer_small":
-            label_pretty = "small"
-        elif exp_name == "transfer_large":
-            label_pretty = "large"
-        else:
-            label_pretty = exp_name
 
         # ===== Dimensionless (solid) =====
         mean_dimless = df_dimless[exp_name].dropna()
@@ -235,12 +390,21 @@ def plot_merged_transfer(
     plt.tight_layout()
 
     plt.savefig(output_path)
-    print(f"Saved merged transfer plot to {output_path}")
+    print(f"Saved the merged transfer plot to {output_path}")
 
 
 if __name__ == "__main__":
-    folder_dim = "/home/josip/dimensionless-mpcrl/output/cart_pole/learning_progress/learning_dimensional_20250827110008"
-    folder_dimless = "/home/josip/dimensionless-mpcrl/output/cart_pole/learning_progress/learning_dimensionless_20250826105216"
+    # change the paths below to point to your experiment folders
+    folder_dim = ""
+    folder_dimless = ""
+
+    print("Plotting results for the dimensional formulation...")
+    plot_results(main_folder=folder_dim, plot_std=True, plot_seeds=False)
+    print("-"*50)
+
+    print("Plotting results for the dimensionless formulation...")
+    plot_results(main_folder=folder_dimless, plot_std=True, plot_seeds=False)
+    print("-"*50)    
 
     # # Option 1: spline smoothing (default)
     # plot_merged_transfer(
@@ -263,6 +427,7 @@ if __name__ == "__main__":
     plot_merged_transfer(
         folder_dimensional=folder_dim,
         folder_dimensionless=folder_dimless,
-        output_path=os.path.join(os.path.dirname(folder_dim), "merged_transfer_plot.pdf"),
+        output_path=os.path.join(os.path.dirname(os.path.dirname(folder_dim)), "merged_transfer_plot.pdf"),
+        plot_std=False,
         smooth=False
     )

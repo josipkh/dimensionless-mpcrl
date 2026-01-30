@@ -9,7 +9,7 @@ keep_output = False  # if False, the output is saved in /tmp/
 dimensionless = True  # whether to use the dimensionless formulation
 
 trainer_name = "sac_fop"
-task_name = "cartpole_swingup" + ("_dimensionless" if dimensionless else "")
+task_name = "cartpole_swingup" + ("_dimensionless" if dimensionless else "_dimensional")
 device = "cpu"
 task = CartpoleSwingupDimensionless(
     mpc_params=get_default_cartpole_params(),
@@ -18,7 +18,7 @@ task = CartpoleSwingupDimensionless(
 )
 seed = 0
 
-output_root = "output" if keep_output else "/tmp"
+output_root = "cart_pole/output" if keep_output else "/tmp"
 time_str = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 output_path = Path(f"{output_root}/{task_name}/{trainer_name}_{seed}_{time_str}")
 
