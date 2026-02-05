@@ -1,3 +1,4 @@
+"""Runs the cart-pole experiments over multiple seeds, saves the results as a .csv and a figure."""
 import datetime
 import os
 import shutil

@@ -1,3 +1,4 @@
+"""Defines a task, which unifies the environment and the controller."""
 from typing import Any, Optional
 import gymnasium as gym
 import torch
@@ -20,7 +21,7 @@ class CartpoleSwingupDimensionless(Task):
         self.env_params = env_params
         self.mpc_params = mpc_params
         self.dimensionless = dimensionless
-        learnable_params = ["xref2"]
+        learnable_params = ["xref2"]  # set only the pole angle reference
         N_horizon = 5  # Number of steps in the MPC horizon
 
         mpc = CartpoleMpcDimensionless(

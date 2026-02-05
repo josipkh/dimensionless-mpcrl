@@ -1,3 +1,4 @@
+"""Defines the cart-pole environment for the swingup task, heavily inspired by the leap-c example."""
 import gymnasium as gym
 import numpy as np
 from cart_pole.utils.config import CartPoleParams, get_default_cartpole_params
@@ -74,6 +75,7 @@ class CartpoleEnvDimensionless(gym.Env):
         self.x_threshold = 3 * self.length  # [m] cart position
         self.dimensionless = dimensionless  # whether to use the dimensionless formulation
 
+        # dynamics model
         def f_explicit(s, a, cartpole_params):
             g = cartpole_params.g.item()
             M = cartpole_params.M.item()
@@ -114,6 +116,7 @@ class CartpoleEnvDimensionless(gym.Env):
 
             return np.array([dx, dtheta, ddx, ddtheta])
 
+        # integrator step
         def scipy_step(f, s, a, dt):
             t_span = (0, dt)
             fun = lambda _, y: np.hstack(
@@ -138,6 +141,7 @@ class CartpoleEnvDimensionless(gym.Env):
         )
         act_ub = self.Fmax
 
+        # scale bounds if needed
         if dimensionless:
             obs_ub = self.Ms_inv @ obs_ub
             act_ub = (self.Ma_inv * self.Fmax).item()
@@ -145,11 +149,12 @@ class CartpoleEnvDimensionless(gym.Env):
         self.action_space = gym.spaces.Box(-np.float32(act_ub), np.float32(act_ub))
         self.observation_space = gym.spaces.Box(-np.float32(obs_ub), np.float32(obs_ub))
 
+        # initial env state
         self.reset_needed = True
         self.t = 0  # physical time
         self.s = None  # physical state
 
-        # For rendering
+        # for rendering
         if not (render_mode is None or render_mode in self.metadata["render_modes"]):
             raise ValueError(
                 f"render_mode must be one of {self.metadata['render_modes']}"
@@ -170,7 +175,7 @@ class CartpoleEnvDimensionless(gym.Env):
 
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
-        """Execute the dynamics of the pendulum on cart."""
+        """Simulate the dynamics of the pendulum on cart for one time step."""
         if self.reset_needed:
             raise RuntimeError("Call reset before using the step method.")
 
@@ -188,11 +193,10 @@ class CartpoleEnvDimensionless(gym.Env):
         if theta > 2 * np.pi:
             theta = theta % 2 * np.pi
         elif theta < -2 * np.pi:
-            theta = -(-theta % 2 * np.pi)  # "Symmetric" modulo
+            theta = -(-theta % 2 * np.pi)  # "symmetric" modulo
         self.s[1] = theta
 
         # calculate the reward
-        # (if dimensionless, should be scaled with the env parameters)
         r = abs(np.pi - (abs(theta))) / (10 * np.pi)  # Reward for swingup; Max: 0.1
 
         # check for termination
@@ -200,16 +204,16 @@ class CartpoleEnvDimensionless(gym.Env):
         trunc = False
         info = {}
         if np.abs(self.s[0]) > self.x_threshold:
-            term = True  # Just terminating should be enough punishment when reward is positive
+            term = True  # just terminating should be enough punishment when reward is positive
             info = {"task": {"violation": True, "success": False}}
         if self.t > self.max_episode_length:
             # check if the pole is upright in the last 10 steps
             if len(self.s_trajectory) >= 10:
                 success = all(
                     np.abs(self.s_trajectory[i][1]) < 0.1 for i in range(-10, 0)
-                )  # TODO: check if 0.1 is a good limit
+                )  # 0.1 seems like a good threshold (arbitrary)
             else:
-                success = False  # Not enough data to determine success
+                success = False  # not enough data to determine success
 
             info = {"task": {"violation": False, "success": success}}
             trunc = True
@@ -224,13 +228,14 @@ class CartpoleEnvDimensionless(gym.Env):
     def reset(
         self, *, seed: int | None = None, options: dict | None = None
     ) -> tuple[np.ndarray, dict]:  # type: ignore
+        """Reset the environment to the initial state."""
         if seed is not None:
             super().reset(seed=seed)
             self.observation_space.seed(seed)
             self.action_space.seed(seed)
 
         self.t = 0
-        self.s = self.init_state()
+        self.s = np.array([0.0, np.pi, 0.0, 0.0])  # the pendulum is hanging down at the start
         self.reset_needed = False
 
         self.s_trajectory = []
@@ -239,11 +244,6 @@ class CartpoleEnvDimensionless(gym.Env):
 
         obs = self.dim2nondim_s(self.s)
         return obs, {}
-
-
-    def init_state(self) -> np.ndarray:
-        """The pendulum is hanging down at the start."""
-        return np.array([0.0, np.pi, 0.0, 0.0])
 
 
     def render(self):

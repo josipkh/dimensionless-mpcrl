@@ -1,3 +1,4 @@
+"""Defines the MPC for the cart-pole system."""
 import casadi as ca
 import numpy as np
 from acados_template import AcadosModel, AcadosOcp
@@ -84,6 +85,7 @@ class CartpoleMpcDimensionless(Mpc):
 
 
 def f_expl_expr(model: AcadosModel, dimensionless: bool) -> ca.SX:
+    """Explicit continuous-time prediction model in CasADi syntax."""
     p = find_param_in_p_or_p_global(["M", "m", "g", "l", "mu_f"], model)
 
     M = p["M"]
@@ -176,6 +178,7 @@ def f_expl_expr(model: AcadosModel, dimensionless: bool) -> ca.SX:
 
 
 def disc_dyn_expr(model: AcadosModel, dt: float, dimensionless: bool) -> ca.SX:
+    """Explicit discrete-time prediction model in CasADi syntax."""
     f_expl = f_expl_expr(model, dimensionless)
 
     x = model.x
@@ -196,6 +199,7 @@ def disc_dyn_expr(model: AcadosModel, dt: float, dimensionless: bool) -> ca.SX:
 
 
 def cost_matrix_casadi(model: AcadosModel) -> ca.SX:
+    """Creates the cost matrix W in CasADi syntax from the model parameters."""
     L = ca.diag(
         ca.vertcat(
             *find_param_in_p_or_p_global(
@@ -211,6 +215,7 @@ def cost_matrix_casadi(model: AcadosModel) -> ca.SX:
 
 
 def yref_casadi(model: AcadosModel) -> ca.SX:
+    """Creates the reference vector yref in CasADi syntax (for NONLINEAR_LS cost)."""
     return ca.vertcat(
         *find_param_in_p_or_p_global(
             [f"xref{i}" for i in range(1, 5)] + ["uref"], model
@@ -219,12 +224,14 @@ def yref_casadi(model: AcadosModel) -> ca.SX:
 
 
 def c_casadi(model: AcadosModel) -> ca.SX:
+    """Creates the cost vector c in CasADi syntax (for EXTERNAL cost)."""
     return ca.vertcat(
         *find_param_in_p_or_p_global([f"c{i}" for i in range(1, 6)], model).values()
     )  # type:ignore
 
 
 def cost_expr_ext_cost(model: AcadosModel) -> ca.SX:
+    """Creates the stage cost expression for EXTERNAL cost in CasADi syntax."""
     x = model.x
     u = model.u
 
@@ -237,6 +244,7 @@ def cost_expr_ext_cost(model: AcadosModel) -> ca.SX:
 
 
 def cost_expr_ext_cost_e(model: AcadosModel) -> ca.SX:
+    """Creates the terminal cost expression for EXTERNAL cost in CasADi syntax."""
     x = model.x
     W = cost_matrix_casadi(model)
     c = c_casadi(model)
@@ -258,6 +266,7 @@ def export_parametric_ocp(
     tf: float,
     dimensionless: bool
 ) -> AcadosOcp:
+    """Creates the OCP description suitable for use in acados."""
     ocp = AcadosOcp()
 
     ocp.solver_options.N_horizon = N_horizon

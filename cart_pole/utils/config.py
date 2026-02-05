@@ -1,5 +1,7 @@
+"""Utilities for cart-pole configuration parameters."""
 from dataclasses import dataclass
 import numpy as np
+
 
 @dataclass(kw_only=True)
 class CartPoleParams:

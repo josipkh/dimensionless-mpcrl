@@ -1,3 +1,4 @@
+"""Runs a single cart-pole experiment."""
 import datetime
 from pathlib import Path
 from leap_c.run import main
@@ -22,8 +23,8 @@ output_root = "cart_pole/output" if keep_output else "/tmp"
 time_str = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 output_path = Path(f"{output_root}/{task_name}/{trainer_name}_{seed}_{time_str}")
 
-# for testing transfer learning, set the output path to an existing directory
-# output_path = Path("/home/josip/leap-c/output/cartpole_swingup_dimensionless/sac_fop_0_20250704102054_transfer_2")
+# for testing transfer learning, set the output path to an existing directory, e.g.:
+# output_path = Path("/home/josip/dimensionless-mpcrl/output/cartpole_swingup_dimensionless/sac_fop_0_20250704102054_transfer_2")
 
 cfg = SacFopBaseConfig()
 cfg.seed = seed

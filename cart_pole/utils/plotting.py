@@ -1,3 +1,4 @@
+"""Utilities for plotting cart-pole experiment results."""
 import os
 import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
@@ -394,16 +395,16 @@ def plot_merged_transfer(
 
 
 if __name__ == "__main__":
-    # change the paths below to point to your experiment folders
-    folder_dim = ""
-    folder_dimless = ""
+    # NOTE: change the paths below to point to your experiment folders
+    folder_dimensional = ""
+    folder_dimensionless = ""
 
     print("Plotting results for the dimensional formulation...")
-    plot_results(main_folder=folder_dim, plot_std=True, plot_seeds=False)
+    plot_results(main_folder=folder_dimensional, plot_std=True, plot_seeds=False)
     print("-"*50)
 
     print("Plotting results for the dimensionless formulation...")
-    plot_results(main_folder=folder_dimless, plot_std=True, plot_seeds=False)
+    plot_results(main_folder=folder_dimensionless, plot_std=True, plot_seeds=False)
     print("-"*50)    
 
     # # Option 1: spline smoothing (default)
@@ -425,9 +426,9 @@ if __name__ == "__main__":
 
     # Option 3: raw curves
     plot_merged_transfer(
-        folder_dimensional=folder_dim,
-        folder_dimensionless=folder_dimless,
-        output_path=os.path.join(os.path.dirname(os.path.dirname(folder_dim)), "merged_transfer_plot.pdf"),
+        folder_dimensional=folder_dimensional,
+        folder_dimensionless=folder_dimensionless,
+        output_path=os.path.join(os.path.dirname(os.path.dirname(folder_dimensional)), "merged_transfer_plot.pdf"),
         plot_std=False,
         smooth=False
     )

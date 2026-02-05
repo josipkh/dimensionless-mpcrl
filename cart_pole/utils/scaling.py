@@ -27,6 +27,7 @@ def get_similar_cartpole_params(
     which contains five parameters: pole length, cart mass, pole mass, cart friction and gravity.
 
     It is assumed that the friction and gravity cannot be changed.
+    A new system is then fully defined by specifying only the new pole length.
     """
     Mx, Mu, _ = get_transformation_matrices(reference_params)
 
@@ -63,7 +64,6 @@ def get_similar_cartpole_params(
             f"L{k + 1}{k + 1}",
             np.array([np.sqrt(q_diag[k] if k < 4 else r_diag[k - 4])]),
         )
-
 
     # check the matrices
     q, r = get_cost_matrices(new_params)
