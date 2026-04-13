@@ -295,6 +295,9 @@ def plot_merged_transfer(
     experiments = ['default', 'transfer_small', 'transfer_large']
 
     color_map = {}
+    alpha_std = 0.075
+    alpha_std_bound = 0.2
+    std_dashes = (5, 10)
 
     for exp_name in experiments:
         color = next(color_cycle)
@@ -321,9 +324,9 @@ def plot_merged_transfer(
                 _, std_vals = smooth_curve(steps_dimless.values + step_shift, std_vals)
             elif smooth == "rolling":
                 std_vals = rolling_average(std_vals, window=smooth_window)
-            plt.fill_between(x_vals, y_vals - std_vals, y_vals + std_vals, color=color, alpha=0.15)
-            plt.plot(x_vals, y_vals - std_vals, color=color, linestyle='-', linewidth=0.8)
-            plt.plot(x_vals, y_vals + std_vals, color=color, linestyle='-', linewidth=0.8)
+            plt.fill_between(x_vals, y_vals - std_vals, y_vals + std_vals, color=color, alpha=alpha_std)
+            plt.plot(x_vals, y_vals - std_vals, color=color, linestyle='-', linewidth=0.8, alpha=alpha_std_bound)
+            plt.plot(x_vals, y_vals + std_vals, color=color, linestyle='-', linewidth=0.8, alpha=alpha_std_bound)
 
         # ===== Dimensional (dashed) =====
         mean_dim = df_dim[exp_name].dropna()
@@ -346,9 +349,9 @@ def plot_merged_transfer(
                 _, std_vals_d = smooth_curve(steps_dim.values + step_shift_d, std_vals_d)
             elif smooth == "rolling":
                 std_vals_d = rolling_average(std_vals_d, window=smooth_window)
-            plt.fill_between(x_vals_d, y_vals_d - std_vals_d, y_vals_d + std_vals_d, color=color, alpha=0.15)
-            plt.plot(x_vals_d, y_vals_d - std_vals_d, color=color, linestyle='--', linewidth=0.8)
-            plt.plot(x_vals_d, y_vals_d + std_vals_d, color=color, linestyle='--', linewidth=0.8)
+            plt.fill_between(x_vals_d, y_vals_d - std_vals_d, y_vals_d + std_vals_d, color=color, alpha=alpha_std)
+            plt.plot(x_vals_d, y_vals_d - std_vals_d, color=color, linestyle='--', linewidth=0.8, alpha=alpha_std_bound, dashes=std_dashes)
+            plt.plot(x_vals_d, y_vals_d + std_vals_d, color=color, linestyle='--', linewidth=0.8, alpha=alpha_std_bound, dashes=std_dashes)
 
     # Vertical line at transfer start
     plt.axvline(x=transition_point, color='black', linestyle='--', label='transfer start')
@@ -398,6 +401,7 @@ if __name__ == "__main__":
     # NOTE: change the paths below to point to your experiment folders
     folder_dimensional = ""
     folder_dimensionless = ""
+    output_path = os.path.dirname(os.path.dirname(folder_dimensional))
 
     print("Plotting results for the dimensional formulation...")
     plot_results(main_folder=folder_dimensional, plot_std=True, plot_seeds=False)
@@ -407,28 +411,21 @@ if __name__ == "__main__":
     plot_results(main_folder=folder_dimensionless, plot_std=True, plot_seeds=False)
     print("-"*50)    
 
-    # # Option 1: spline smoothing (default)
-    # plot_merged_transfer(
-    #     folder_dimensional=folder_dim,
-    #     folder_dimensionless=folder_dimless,
-    #     output_path="merged_transfer_spline.pdf",
-    #     smooth=True
-    # )
-
-    # # Option 2: rolling average
-    # plot_merged_transfer(
-    #     folder_dimensional=folder_dim,
-    #     folder_dimensionless=folder_dimless,
-    #     output_path="merged_transfer_rolling.pdf",
-    #     smooth="rolling",
-    #     smooth_window=3
-    # )
-
-    # Option 3: raw curves
+    # Option 1: rolling average
     plot_merged_transfer(
         folder_dimensional=folder_dimensional,
         folder_dimensionless=folder_dimensionless,
-        output_path=os.path.join(os.path.dirname(os.path.dirname(folder_dimensional)), "merged_transfer_plot.pdf"),
-        plot_std=False,
+        output_path=os.path.join(output_path, "merged_transfer_smooth.pdf"),
+        plot_std=True,
+        smooth=True,
+        smooth_window=5
+    )
+
+    # Option 2: raw curves
+    plot_merged_transfer(
+        folder_dimensional=folder_dimensional,
+        folder_dimensionless=folder_dimensionless,
+        output_path=os.path.join(output_path, "merged_transfer_raw.pdf"),
+        plot_std=True,
         smooth=False
     )
